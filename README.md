@@ -43,6 +43,7 @@ Esse comando executa em sequência:
 - EDA
 - preparação de dados
 - treinamento de modelos
+- registro de experimentos no MLflow local
 
 Parâmetros disponíveis:
 
@@ -52,6 +53,12 @@ Parâmetros disponíveis:
 - `--artifacts`: diretório dos artefatos
 - `--test-size`: proporção do conjunto de teste
 - `--random-state`: seed fixa para reprodutibilidade
+- `--tracking-dir`: diretório local dos runs do MLflow
+- `--experiment-name`: nome do experimento no MLflow
+- `--logreg-c`: regularização da LogisticRegression
+- `--logreg-max-iter`: iterações máximas da LogisticRegression
+- `--rf-n-estimators`: quantidade de árvores da RandomForest
+- `--rf-max-depth`: profundidade máxima da RandomForest
 
 ## Como rodar a análise exploratória
 
@@ -120,6 +127,7 @@ Esse comando:
 - compara os resultados e escolhe o melhor modelo
 - salva o melhor artefato em `artifacts/model.joblib`
 - gera o relatório em `reports/model_report.html`
+- registra parâmetros, métricas e artefatos em `mlruns/`
 
 Parâmetros disponíveis:
 
@@ -127,6 +135,39 @@ Parâmetros disponíveis:
 - `--artifacts`: pasta onde o melhor modelo será salvo
 - `--reports`: pasta onde o relatório será salvo
 - `--random-state`: seed fixa para reprodutibilidade
+- `--tracking-dir`: diretório local dos runs do MLflow
+- `--experiment-name`: nome do experimento no MLflow
+- `--logreg-c`: regularização da LogisticRegression
+- `--logreg-max-iter`: iterações máximas da LogisticRegression
+- `--rf-n-estimators`: quantidade de árvores da RandomForest
+- `--rf-max-depth`: profundidade máxima da RandomForest
+
+Exemplo de run alternativo para comparação no MLflow:
+
+```bash
+python -B -m src.train --logreg-c 0.5 --logreg-max-iter 3000 --rf-n-estimators 500 --rf-max-depth 18
+```
+
+## Como visualizar os experimentos no MLflow
+
+Depois de rodar o treinamento, execute:
+
+```bash
+mlflow ui --backend-store-uri mlruns
+```
+
+Em seguida, abra no navegador:
+
+```text
+http://127.0.0.1:5000
+```
+
+No UI voce deve encontrar:
+
+- um run novo para cada execucao de treino
+- parametros dos modelos avaliados
+- metricas de teste
+- artefatos do melhor modelo e do relatorio HTML
 
 ## Saídas geradas
 
@@ -150,6 +191,7 @@ Após rodar o treinamento:
 
 - `reports/model_report.html`
 - `artifacts/model.joblib`
+- `mlruns/`
 
 ## Documentação das etapas
 
@@ -200,12 +242,13 @@ Os scripts usam as bibliotecas:
 - `seaborn`
 - `scikit-learn`
 - `joblib`
+- `mlflow`
 - `pyarrow`
 
 Se necessário, instale com:
 
 ```bash
-pip install pandas numpy matplotlib seaborn scikit-learn joblib pyarrow
+pip install pandas numpy matplotlib seaborn scikit-learn joblib mlflow pyarrow
 ```
 
 ## Observação

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Relatório de Treinamento de Modelos</title>
+  <title>Relatorio de Treinamento de Modelos</title>
   <style>
     :root {
       --bg: #f4f6f8;
@@ -288,11 +288,11 @@
 <body>
   <main class="page">
     <header class="hero">
-      <h1>Relatório de Treinamento de Modelos</h1>
-      <p class="hero-subtitle">Comparação entre modelos de classificação treinados sobre os dados processados.</p>
+      <h1>Relatorio de Treinamento de Modelos</h1>
+      <p class="hero-subtitle">Comparacao entre modelos de classificacao treinados sobre os dados processados.</p>
     </header>
     <div class="content">
-      <section><h2>Visão geral</h2><div class="report-block"><div class="metrics-grid"><div class="metric-card"><strong>Shape do treino</strong><span>(16000, 15)</span></div><div class="metric-card"><strong>Shape do teste</strong><span>(4000, 15)</span></div><div class="metric-card"><strong>Coluna alvo</strong><span>Graduacao_Indicada</span></div><div class="metric-card"><strong>Modelos avaliados</strong><span>LogisticRegression e RandomForest</span></div></div></div></section><section><h2>Comparação de métricas</h2><div class="report-block"><div class="table-wrap"><table class="dataframe report-table">
+      <section><h2>Visao geral</h2><div class="report-block"><div class="metrics-grid"><div class="metric-card"><strong>Shape do treino</strong><span>(16000, 15)</span></div><div class="metric-card"><strong>Shape do teste</strong><span>(4000, 15)</span></div><div class="metric-card"><strong>Coluna alvo</strong><span>Graduacao_Indicada</span></div><div class="metric-card"><strong>Modelos avaliados</strong><span>LogisticRegression e RandomForest</span></div><div class="metric-card"><strong>Config atual</strong><span>logreg_c=1.0, logreg_max_iter=2000, rf_n_estimators=300, rf_max_depth=None</span></div></div></div></section><section><h2>Comparacao de metricas</h2><div class="report-block"><div class="table-wrap"><table class="dataframe report-table">
   <thead>
     <tr style="text-align: right;">
       <th>Modelo</th>
@@ -318,7 +318,7 @@
       <td>0.8506</td>
     </tr>
   </tbody>
-</table></div></div><div class="report-block"><figure class="report-figure"><img src="figures/model_metrics_comparison.png" alt="Comparação de métricas dos modelos" /><figcaption>Comparação visual entre Accuracy, Precision Macro, Recall Macro e F1 Macro.</figcaption></figure></div></section><section><h2>Melhor modelo</h2><div class="report-block"><p>O melhor modelo foi <code>RandomForest</code>.</p><p>A escolha foi feita priorizando o <code>F1 macro</code>, porque a variável alvo é desbalanceada e essa métrica representa melhor o desempenho médio entre todas as classes. Em caso de empate, a <code>accuracy</code> foi usada como critério de desempate.</p><p>O modelo selecionado obteve F1 macro de <code>0.8506</code> e accuracy de <code>0.9470</code>.</p></div></section><section><h2>Classification report do melhor modelo</h2><div class="report-block"><pre>                            precision    recall  f1-score   support
+</table></div></div><div class="report-block"><figure class="report-figure"><img src="figures/model_metrics_comparison.png" alt="Comparacao de metricas dos modelos" /><figcaption>Comparacao visual entre Accuracy, Precision Macro, Recall Macro e F1 Macro.</figcaption></figure></div></section><section><h2>Melhor modelo</h2><div class="report-block"><p>O melhor modelo foi <code>RandomForest</code>.</p><p>A escolha foi feita priorizando o <code>F1 macro</code>, porque a variavel alvo e desbalanceada e essa metrica representa melhor o desempenho medio entre todas as classes. Em caso de empate, a <code>accuracy</code> foi usada como criterio de desempate.</p><p>O modelo selecionado obteve F1 macro de <code>0.8506</code> e accuracy de <code>0.9470</code>.</p></div></section><section><h2>Tracking de experimentos</h2><div class="report-block"><p>O experimento foi registrado no MLflow com o nome <code>graduacao-indicada-classificacao</code>.</p><p>O backend local de tracking foi salvo em <code>mlruns</code> e o run inclui parametros dos modelos, metricas de teste, o relatorio HTML e o artefato do melhor modelo.</p></div></section><section><h2>Classification report do melhor modelo</h2><div class="report-block"><pre>                            precision    recall  f1-score   support
 
              Administração       0.98      0.99      0.99       924
      Ciência da Computação       0.91      0.89      0.90       151

@@ -45,3 +45,7 @@ Thumbs.db
 
 # Large generated model artifact
 artifacts/model.joblib
+
+# Local MLflow tracking
+mlruns/
+mlflow.db
