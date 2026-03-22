@@ -82,6 +82,45 @@ Abrir no navegador:
 - ReDoc: `http://127.0.0.1:8000/redoc`
 - Health check: `http://127.0.0.1:8000/health`
 
+## Esteira CI/CD
+
+O projeto agora segue uma esteira MLOps simples, pensada para validação rápida e deploy funcional.
+
+### O que a CI valida
+
+- instalação das dependências do projeto
+- sintaxe e importação dos módulos em `app/` e `src/`
+- entrypoints principais com `--help`
+- presença dos artefatos e arquivos obrigatórios versionados
+- smoke tests da API com `GET /health`, `POST /predict`, `POST /web/predict` e cenário degradado com `MODEL_VARIANT` inválida
+
+### Quando a CI roda
+
+- em `pull_request` para `main`
+- em `push` para `main`
+
+### Como o deploy acontece
+
+- a validação automática roda no GitHub Actions pelo workflow `ci`
+- o deploy continua simples e fica a cargo do Render
+- após merge na `main`, o Render pode publicar automaticamente usando o `render.yaml`
+
+### Observação importante
+
+- a esteira inicial não executa `python -m src.run_pipeline`
+- o treino completo fica fora da CI para evitar regravação de artefatos, aumento de tempo e inconsistência em um fluxo que precisa ser simples
+
+### Roadmap conceitual
+
+Como evolução futura, a esteira pode incorporar:
+
+- validação formal de dados
+- treino automatizado controlado
+- model registry
+- staging antes de produção
+- monitoramento de drift e performance
+- rollback e retraining
+
 ## Evidências geradas pelo projeto
 
 Após a execução do pipeline completo, o projeto produz:
@@ -235,13 +274,15 @@ MODEL_VARIANT=logreg
 2. Criar um novo serviço no Render usando o repositório.
 3. Confirmar o uso do arquivo `render.yaml`.
 4. Validar a env var `MODEL_VARIANT`.
-5. Aguardar o build e testar a aplicação publicada.
+5. Ativar auto-deploy da branch `main` no serviço do Render.
+6. Aguardar o build e testar a aplicação publicada.
 
 ### Validações após deploy
 
 - `GET /health`
 - `GET /docs`
 - `POST /predict`
+- confirmação de que a publicação ocorreu após merge na `main`
 
 ## Comandos por etapa
 
