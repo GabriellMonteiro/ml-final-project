@@ -178,6 +178,20 @@ Na raiz do projeto, execute:
 uvicorn app.main:app --reload
 ```
 
+Para escolher a variante servida pela API localmente:
+
+```bash
+$env:MODEL_VARIANT="logreg"
+uvicorn app.main:app --reload
+```
+
+ou
+
+```bash
+$env:MODEL_VARIANT="rf_compacto"
+uvicorn app.main:app --reload
+```
+
 Depois abra no navegador:
 
 ```text
@@ -245,6 +259,8 @@ Após rodar o treinamento:
 
 - `reports/model_report.html`
 - `artifacts/model.joblib`
+- `artifacts/deploy_logreg.joblib`
+- `artifacts/deploy_rf_compacto.joblib`
 - `mlruns/`
 
 Após rodar a API:
@@ -258,6 +274,52 @@ Após rodar a API:
 - Preparação de dados: `reports/preprocess.html`
 - Treinamento de modelos: `reports/model_report.html`
 - Prompt base para relatórios: `context/html_report_prompt.md`
+
+## Deploy no Render
+
+O projeto esta preparado para deploy no Render sem Docker, usando o arquivo `render.yaml`.
+
+Arquivos principais para o deploy:
+
+- `render.yaml`
+- `requirements.txt`
+- `app/main.py`
+- `artifacts/preprocess_pipeline.joblib`
+- `artifacts/deploy_logreg.joblib`
+- `artifacts/deploy_rf_compacto.joblib`
+
+Variavel de ambiente usada pela API:
+
+- `MODEL_VARIANT`
+
+Valores suportados:
+
+- `logreg`
+- `rf_compacto`
+
+Valor padrao recomendado para a primeira publicacao:
+
+- `MODEL_VARIANT=logreg`
+
+Passos de deploy:
+
+1. Suba o repositório no GitHub com os artefatos de deploy versionados.
+2. No Render, crie um novo Blueprint ou Web Service a partir do repositório.
+3. Confirme o uso do `render.yaml`.
+4. Verifique se a env var `MODEL_VARIANT` esta definida como `logreg` ou `rf_compacto`.
+5. Aguarde o build instalar as dependencias com `pip install -r requirements.txt`.
+6. O start da aplicacao sera feito com `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+
+Validacoes apos deploy:
+
+- `GET /health`
+- `GET /docs`
+- `POST /predict`
+
+Observacao:
+
+- o artefato `artifacts/model.joblib` continua sendo o melhor modelo local do fluxo de treino
+- o ambiente publicado no Render usa uma variante leve de deploy escolhida por `MODEL_VARIANT`
 
 ## O que a EDA cobre
 
