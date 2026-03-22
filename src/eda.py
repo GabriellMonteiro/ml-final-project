@@ -1,7 +1,7 @@
 from __future__ import annotations
 """Script de análise exploratória para o dataset de graduação indicada.
 
-Gera um relatório em Markdown e figuras PNG a partir do CSV de entrada.
+Gera um relatório HTML e figuras PNG a partir do CSV de entrada.
 """
 
 import argparse
@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+
+from src.utils.report_utils import build_structured_report
 
 
 matplotlib.use("Agg")
@@ -101,23 +103,12 @@ def build_course_tecnico_numeric(series: pd.Series) -> pd.Series:
     return encoded.astype(int)
 
 
-def dataframe_to_markdown(df: pd.DataFrame) -> str:
-    """Converte um DataFrame em tabela Markdown simples."""
+def prepare_table_for_display(df: pd.DataFrame, index_label: str = "índice") -> pd.DataFrame:
+    """Prepara um DataFrame para renderização tabular no relatório."""
     table = df.copy()
-    index_name = table.index.name or "index"
+    index_name = table.index.name or index_label
     table = table.reset_index().rename(columns={"index": index_name})
-    columns = [str(column) for column in table.columns]
-
-    lines = [
-        "| " + " | ".join(columns) + " |",
-        "| " + " | ".join(["---"] * len(columns)) + " |",
-    ]
-
-    for _, row in table.iterrows():
-        values = [str(value) for value in row.tolist()]
-        lines.append("| " + " | ".join(values) + " |")
-
-    return "\n".join(lines)
+    return table
 
 
 def rename_columns_for_display(df: pd.DataFrame) -> pd.DataFrame:
@@ -337,7 +328,7 @@ def plot_preference_heatmap(df: pd.DataFrame, figures_dir: Path) -> str:
 
 
 def build_report(df: pd.DataFrame, input_path: Path, figures: dict[str, str]) -> str:
-    """Monta o conteúdo do relatório final em Markdown."""
+    """Monta o conteúdo do relatório final em HTML."""
     target_counts = df["Graduacao_Indicada"].value_counts()
     target_percentage = (target_counts / len(df) * 100).round(2)
     data_types = df.dtypes.astype(str)
@@ -414,88 +405,192 @@ def build_report(df: pd.DataFrame, input_path: Path, figures: dict[str, str]) ->
             "mais controlada do que dados reais de produção."
         ),
     ]
-
-    lines = [
-        "# Relatório de EDA",
-        "",
-        "## Visão geral do dataset",
-        f"- Arquivo de origem: `{input_path.as_posix()}`",
-        f"- Linhas: `{len(df)}`",
-        f"- Colunas: `{df.shape[1]}`",
-        f"- Coluna alvo: `Graduacao_Indicada`",
-        f"- Número de classes: `{df['Graduacao_Indicada'].nunique()}`",
-        "",
-        "## Qualidade dos dados",
-        "### Tipos das colunas",
-        dataframe_to_markdown(data_types.rename("tipo").to_frame()).replace("| index |", "| índice |"),
-        "",
-        "### Valores nulos",
-        dataframe_to_markdown(null_counts.rename("quantidade_nulos").to_frame()).replace("| index |", "| índice |"),
-        "",
-        f"- Linhas duplicadas: `{duplicate_count}`",
-        "",
-        "## Estatísticas descritivas",
-        dataframe_to_markdown(summary_stats).replace("| index |", "| índice |"),
-        "",
-        "## Distribuição da variável alvo",
-        dataframe_to_markdown(
-            pd.DataFrame({"quantidade": target_counts, "porcentagem": target_percentage})
-        ).replace("| index |", "| Graduacao_Indicada |"),
-        "",
-        f"![Distribuição da variável alvo](figures/{figures['target_distribution']})",
-        "",
-        "## Distribuição de Curso_Tecnico",
-        dataframe_to_markdown(
-            pd.DataFrame(
+    sections = [
+        {
+            "title": "Visão geral do dataset",
+            "description": "Resumo inicial da base usada na análise exploratória.",
+            "blocks": [
                 {
-                    "quantidade": curso_tecnico_distribution,
-                    "porcentagem": curso_tecnico_percentage,
+                    "type": "metrics_grid",
+                    "items": [
+                        {"label": "Arquivo de origem", "value": input_path.as_posix()},
+                        {"label": "Linhas", "value": len(df)},
+                        {"label": "Colunas", "value": df.shape[1]},
+                        {"label": "Número de classes", "value": df["Graduacao_Indicada"].nunique()},
+                    ],
                 }
-            )
-        ).replace("| index |", "| Curso_Tecnico |"),
-        "",
-        f"![Distribuição de Curso Técnico](figures/{figures['curso_tecnico_distribution']})",
-        "",
-        "## Distribuição de idade",
-        "A idade apresenta distribuição bem espalhada entre 17 e 50 anos, sem concentração extrema em uma faixa específica.",
-        "",
-        f"![Distribuição de idade](figures/{figures['age_distribution']})",
-        "",
-        "## Correlação entre features",
-        "Para calcular a correlação, a variável categórica `Curso_Tecnico` foi convertida para valores binários (`Sim` = 1 e `Não` = 0).",
-        "",
-        dataframe_to_markdown(correlation.round(3)).replace("| index |", "| índice |"),
-        "",
-        f"![Correlação entre features](figures/{figures['feature_correlation']})",
-        "",
-        "## Média das preferências por alvo",
-        dataframe_to_markdown(grouped_preferences).replace("| index |", "| Graduacao_Indicada |"),
-        "",
-        f"![Mapa de calor das preferências](figures/{figures['preference_by_course']})",
-        "",
-        "## Top 5 classes da variável alvo",
-        dataframe_to_markdown(
-            pd.DataFrame({"quantidade": top_classes, "porcentagem": target_percentage.head(5)})
-        ).replace("| index |", "| Graduacao_Indicada |"),
-        "",
-        "## Insights",
+            ],
+        },
+        {
+            "title": "Qualidade dos dados",
+            "blocks": [
+                {
+                    "type": "table",
+                    "title": "Tipos das colunas",
+                    "data": prepare_table_for_display(data_types.rename("tipo").to_frame(), "índice"),
+                },
+                {
+                    "type": "table",
+                    "title": "Valores nulos",
+                    "data": prepare_table_for_display(
+                        null_counts.rename("quantidade_nulos").to_frame(),
+                        "índice",
+                    ),
+                },
+                {
+                    "type": "text",
+                    "format": "paragraph",
+                    "content": f"Linhas duplicadas identificadas: {duplicate_count}.",
+                },
+            ],
+        },
+        {
+            "title": "Estatísticas descritivas",
+            "blocks": [
+                {
+                    "type": "table",
+                    "data": prepare_table_for_display(summary_stats, "índice"),
+                }
+            ],
+        },
+        {
+            "title": "Distribuição da variável alvo",
+            "blocks": [
+                {
+                    "type": "table",
+                    "data": prepare_table_for_display(
+                        pd.DataFrame({"quantidade": target_counts, "porcentagem": target_percentage}),
+                        "Graduacao_Indicada",
+                    ),
+                },
+                {
+                    "type": "figure",
+                    "src": f"figures/{figures['target_distribution']}",
+                    "alt": "Distribuição da variável alvo",
+                    "caption": "Distribuição das graduações indicadas no dataset.",
+                },
+            ],
+        },
+        {
+            "title": "Distribuição de Curso_Tecnico",
+            "blocks": [
+                {
+                    "type": "table",
+                    "data": prepare_table_for_display(
+                        pd.DataFrame(
+                            {
+                                "quantidade": curso_tecnico_distribution,
+                                "porcentagem": curso_tecnico_percentage,
+                            }
+                        ),
+                        "Curso_Tecnico",
+                    ),
+                },
+                {
+                    "type": "figure",
+                    "src": f"figures/{figures['curso_tecnico_distribution']}",
+                    "alt": "Distribuição de Curso Técnico",
+                    "caption": "Comparação entre estudantes com e sem curso técnico.",
+                },
+            ],
+        },
+        {
+            "title": "Distribuição de idade",
+            "blocks": [
+                {
+                    "type": "text",
+                    "format": "paragraph",
+                    "content": "A idade apresenta distribuição bem espalhada entre 17 e 50 anos, sem concentração extrema em uma faixa específica.",
+                },
+                {
+                    "type": "figure",
+                    "src": f"figures/{figures['age_distribution']}",
+                    "alt": "Distribuição de idade",
+                    "caption": "Histograma das idades com destaque para média e mediana.",
+                },
+            ],
+        },
+        {
+            "title": "Correlação entre features",
+            "blocks": [
+                {
+                    "type": "text",
+                    "format": "paragraph",
+                    "content": "Para calcular a correlação, a variável categórica `Curso_Tecnico` foi convertida para valores binários (`Sim` = 1 e `Não` = 0).",
+                },
+                {
+                    "type": "table",
+                    "data": prepare_table_for_display(correlation.round(3), "índice"),
+                },
+                {
+                    "type": "figure",
+                    "src": f"figures/{figures['feature_correlation']}",
+                    "alt": "Correlação entre features",
+                    "caption": "Mapa de calor com as relações lineares entre as variáveis explicativas.",
+                },
+            ],
+        },
+        {
+            "title": "Média das preferências por alvo",
+            "blocks": [
+                {
+                    "type": "table",
+                    "data": prepare_table_for_display(grouped_preferences, "Graduacao_Indicada"),
+                },
+                {
+                    "type": "figure",
+                    "src": f"figures/{figures['preference_by_course']}",
+                    "alt": "Mapa de calor das preferências",
+                    "caption": "Média das preferências agrupadas por graduação indicada.",
+                },
+            ],
+        },
+        {
+            "title": "Top 5 classes da variável alvo",
+            "blocks": [
+                {
+                    "type": "table",
+                    "data": prepare_table_for_display(
+                        pd.DataFrame({"quantidade": top_classes, "porcentagem": target_percentage.head(5)}),
+                        "Graduacao_Indicada",
+                    ),
+                }
+            ],
+        },
+        {
+            "title": "Insights",
+            "blocks": [
+                {
+                    "type": "text",
+                    "format": "list",
+                    "ordered": True,
+                    "items": insights,
+                }
+            ],
+        },
+        {
+            "title": "Conclusão",
+            "blocks": [
+                {
+                    "type": "text",
+                    "format": "paragraph",
+                    "content": (
+                        "O dataset está pronto para a próxima etapa do pipeline. O principal ponto "
+                        "de atenção para a modelagem é o desbalanceamento da variável alvo. Além "
+                        "disso, como a base apresenta comportamento bastante regular, é importante "
+                        "interpretar os resultados com cautela e validar o desempenho do modelo "
+                        "antes de tirar conclusões mais fortes."
+                    ),
+                }
+            ],
+        },
     ]
 
-    for index, insight in enumerate(insights, start=1):
-        lines.append(f"{index}. {insight}")
-
-    lines.extend(
-        [
-            "",
-            "## Conclusão",
-            "O dataset está pronto para a próxima etapa do pipeline. O principal ponto de atenção "
-            "para a modelagem é o desbalanceamento da variável alvo. Além disso, como a base "
-            "apresenta comportamento bastante regular, é importante interpretar os resultados com "
-            "cautela e validar o desempenho do modelo antes de tirar conclusões mais fortes.",
-        ]
+    return build_structured_report(
+        title="Relatório de EDA",
+        subtitle="Análise exploratória do dataset de graduação indicada.",
+        sections=sections,
     )
-
-    return "\n".join(lines) + "\n"
 
 
 def run_eda(input_path: Path, output_dir: Path) -> tuple[Path, list[Path]]:
@@ -511,7 +606,7 @@ def run_eda(input_path: Path, output_dir: Path) -> tuple[Path, list[Path]]:
         "preference_by_course": plot_preference_heatmap(df, figures_dir),
     }
 
-    report_path = output_dir / "eda.md"
+    report_path = output_dir / "eda.html"
     report_content = build_report(df, input_path, figures)
     report_path.write_text(report_content, encoding="utf-8")
 
@@ -528,8 +623,8 @@ def main() -> None:
 
     report_path, figure_paths = run_eda(input_path, output_dir)
 
-    print(f"EDA report generated at: {report_path}")
-    print("Figures generated:")
+    print(f"Relatório de EDA gerado em: {report_path}")
+    print("Figuras geradas:")
     for figure_path in figure_paths:
         print(f"- {figure_path}")
 
