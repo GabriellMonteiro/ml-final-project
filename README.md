@@ -9,6 +9,7 @@ O foco atual é construir um pipeline simples e reprodutível para o dataset `da
 ```text
 .
 |-- AGENTS.md
+|-- app/
 |-- atividade_final.pdf
 |-- artifacts/
 |-- data/
@@ -169,6 +170,59 @@ No UI voce deve encontrar:
 - metricas de teste
 - artefatos do melhor modelo e do relatorio HTML
 
+## Como rodar a API de predição
+
+Na raiz do projeto, execute:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Depois abra no navegador:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Documentações disponíveis:
+
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- ReDoc: `http://127.0.0.1:8000/redoc`
+
+Endpoints principais:
+
+- `GET /`
+- `GET /health`
+- `POST /predict`
+
+Exemplo de payload para `POST /predict`:
+
+```json
+{
+  "Idade": 45,
+  "Curso_Tecnico": "Sim",
+  "Anos_Para_Formar": 7,
+  "Gosta_Matematica": 1,
+  "Gosta_Programacao": 4,
+  "Gosta_Biologia": 2,
+  "Gosta_Fisica": 3,
+  "Gosta_Quimica": 5,
+  "Gosta_Arte_Design": 3,
+  "Gosta_Comunicacao": 1,
+  "Gosta_Negocios": 1,
+  "Gosta_Historia": 5,
+  "Gosta_Geografia": 1
+}
+```
+
+Exemplo com `curl`:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/predict" \
+  -H "Content-Type: application/json" \
+  -d "{\"Idade\":45,\"Curso_Tecnico\":\"Sim\",\"Anos_Para_Formar\":7,\"Gosta_Matematica\":1,\"Gosta_Programacao\":4,\"Gosta_Biologia\":2,\"Gosta_Fisica\":3,\"Gosta_Quimica\":5,\"Gosta_Arte_Design\":3,\"Gosta_Comunicacao\":1,\"Gosta_Negocios\":1,\"Gosta_Historia\":5,\"Gosta_Geografia\":1}"
+```
+
 ## Saídas geradas
 
 Após rodar a análise exploratória:
@@ -192,6 +246,11 @@ Após rodar o treinamento:
 - `reports/model_report.html`
 - `artifacts/model.joblib`
 - `mlruns/`
+
+Após rodar a API:
+
+- documentação em `http://127.0.0.1:8000/docs`
+- documentação alternativa em `http://127.0.0.1:8000/redoc`
 
 ## Documentação das etapas
 
@@ -244,11 +303,20 @@ Os scripts usam as bibliotecas:
 - `joblib`
 - `mlflow`
 - `pyarrow`
+- `fastapi`
+- `uvicorn`
+- `pydantic`
 
 Se necessário, instale com:
 
 ```bash
-pip install pandas numpy matplotlib seaborn scikit-learn joblib mlflow pyarrow
+pip install -r requirements.txt
+```
+
+Ou, se preferir instalar manualmente:
+
+```bash
+pip install pandas numpy matplotlib seaborn scikit-learn joblib mlflow pyarrow fastapi uvicorn pydantic
 ```
 
 ## Observação
