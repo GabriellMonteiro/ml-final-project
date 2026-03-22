@@ -44,6 +44,40 @@ def parse_args() -> argparse.Namespace:
         default=42,
         help="Seed fixa para reprodutibilidade.",
     )
+    parser.add_argument(
+        "--tracking-dir",
+        default="mlruns",
+        help="Diretorio local onde o MLflow vai salvar os runs.",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        default="graduacao-indicada-classificacao",
+        help="Nome do experimento no MLflow.",
+    )
+    parser.add_argument(
+        "--logreg-c",
+        type=float,
+        default=1.0,
+        help="Valor de regularizacao C da LogisticRegression.",
+    )
+    parser.add_argument(
+        "--logreg-max-iter",
+        type=int,
+        default=2000,
+        help="Numero maximo de iteracoes da LogisticRegression.",
+    )
+    parser.add_argument(
+        "--rf-n-estimators",
+        type=int,
+        default=300,
+        help="Quantidade de arvores da RandomForest.",
+    )
+    parser.add_argument(
+        "--rf-max-depth",
+        type=int,
+        default=None,
+        help="Profundidade maxima da RandomForest. Omitido usa crescimento livre.",
+    )
     return parser.parse_args()
 
 
@@ -54,10 +88,12 @@ def main() -> None:
     reports_dir = Path(args.reports)
     processed_dir = Path(args.processed)
     artifacts_dir = Path(args.artifacts)
+    tracking_dir = Path(args.tracking_dir)
 
     reports_dir.mkdir(parents=True, exist_ok=True)
     processed_dir.mkdir(parents=True, exist_ok=True)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
+    tracking_dir.mkdir(parents=True, exist_ok=True)
 
     eda_report_path, figure_paths = run_eda(input_path=input_path, output_dir=reports_dir)
     (
@@ -75,11 +111,17 @@ def main() -> None:
         test_size=args.test_size,
         random_state=args.random_state,
     )
-    model_path, model_report_path, best_model_name, results = run_training(
+    model_path, model_report_path, best_model_name, results, mlflow_tracking_dir = run_training(
         data_dir=processed_dir,
         artifacts_dir=artifacts_dir,
         reports_dir=reports_dir,
         random_state=args.random_state,
+        tracking_dir=tracking_dir,
+        experiment_name=args.experiment_name,
+        logreg_c=args.logreg_c,
+        logreg_max_iter=args.logreg_max_iter,
+        rf_n_estimators=args.rf_n_estimators,
+        rf_max_depth=args.rf_max_depth,
     )
 
     print("Pipeline concluído com sucesso.")
@@ -92,6 +134,7 @@ def main() -> None:
     print(f"Melhor modelo: {best_model_name}")
     print(f"Artefato do modelo: {model_path}")
     print(f"Relatório de treinamento: {model_report_path}")
+    print(f"Tracking MLflow: {mlflow_tracking_dir}")
     for model_name, metrics in results.items():
         print(
             f"{model_name}: "

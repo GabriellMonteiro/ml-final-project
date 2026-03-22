@@ -1,8 +1,8 @@
 from __future__ import annotations
-"""Script de treinamento e avaliação de modelos de classificação.
+"""Script de treinamento, avaliacao e tracking de experimentos.
 
-Treina dois modelos, compara métricas no conjunto de teste e salva o melhor
-artefato para as próximas etapas do pipeline.
+Treina os dois modelos exigidos pelo escopo, compara metricas no conjunto
+de teste, salva o melhor artefato e registra a execucao no MLflow local.
 """
 
 import argparse
@@ -15,28 +15,29 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, f1_score, precision_score, recall_score
 
+from src.utils.mlflow_utils import log_training_experiment
 from src.utils.report_utils import build_structured_report
 
 TARGET_COLUMN = "Graduacao_Indicada"
 
 
 def parse_args() -> argparse.Namespace:
-    """Lê os argumentos de linha de comando do script de treino."""
-    parser = argparse.ArgumentParser(description="Executa o treinamento e a avaliação dos modelos.")
+    """Le os argumentos de linha de comando do script de treino."""
+    parser = argparse.ArgumentParser(description="Executa o treinamento e a avaliacao dos modelos.")
     parser.add_argument(
         "--data_dir",
         default="data/processed",
-        help="Diretório com os arquivos train.parquet e test.parquet.",
+        help="Diretorio com os arquivos train.parquet e test.parquet.",
     )
     parser.add_argument(
         "--artifacts",
         default="artifacts",
-        help="Diretório onde o melhor modelo será salvo.",
+        help="Diretorio onde o melhor modelo sera salvo.",
     )
     parser.add_argument(
         "--reports",
         default="reports",
-        help="Diretório onde o relatório de métricas será salvo.",
+        help="Diretorio onde o relatorio de metricas sera salvo.",
     )
     parser.add_argument(
         "--random-state",
@@ -44,17 +45,51 @@ def parse_args() -> argparse.Namespace:
         default=42,
         help="Seed fixa para reprodutibilidade.",
     )
+    parser.add_argument(
+        "--tracking-dir",
+        default="mlruns",
+        help="Diretorio local onde o MLflow vai salvar os runs.",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        default="graduacao-indicada-classificacao",
+        help="Nome do experimento no MLflow.",
+    )
+    parser.add_argument(
+        "--logreg-c",
+        type=float,
+        default=1.0,
+        help="Valor de regularizacao C da LogisticRegression.",
+    )
+    parser.add_argument(
+        "--logreg-max-iter",
+        type=int,
+        default=2000,
+        help="Numero maximo de iteracoes da LogisticRegression.",
+    )
+    parser.add_argument(
+        "--rf-n-estimators",
+        type=int,
+        default=300,
+        help="Quantidade de arvores da RandomForest.",
+    )
+    parser.add_argument(
+        "--rf-max-depth",
+        type=int,
+        default=None,
+        help="Profundidade maxima da RandomForest. Omitido usa crescimento livre.",
+    )
     return parser.parse_args()
 
 
 def ensure_dir(path: Path) -> Path:
-    """Cria o diretório caso ele ainda não exista."""
+    """Cria o diretorio caso ele ainda nao exista."""
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def ensure_figures_dir(reports_dir: Path) -> Path:
-    """Garante a existência da pasta de figuras do relatório."""
+    """Garante a existencia da pasta de figuras do relatorio."""
     figures_dir = reports_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
     return figures_dir
@@ -66,7 +101,7 @@ def load_splits(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     test_path = data_dir / "test.parquet"
 
     if not train_path.exists() or not test_path.exists():
-        raise FileNotFoundError("Arquivos train.parquet e test.parquet são obrigatórios.")
+        raise FileNotFoundError("Arquivos train.parquet e test.parquet sao obrigatorios.")
 
     train_df = pd.read_parquet(train_path)
     test_df = pd.read_parquet(test_path)
@@ -80,17 +115,25 @@ def split_xy(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     return X, y
 
 
-def build_models(random_state: int) -> dict[str, object]:
+def build_models(
+    random_state: int,
+    logreg_c: float,
+    logreg_max_iter: int,
+    rf_n_estimators: int,
+    rf_max_depth: int | None,
+) -> dict[str, object]:
     """Monta os modelos exigidos pelo escopo da atividade."""
     return {
         "LogisticRegression": LogisticRegression(
-            max_iter=2000,
+            C=logreg_c,
+            max_iter=logreg_max_iter,
             solver="lbfgs",
             class_weight="balanced",
             random_state=random_state,
         ),
         "RandomForest": RandomForestClassifier(
-            n_estimators=300,
+            n_estimators=rf_n_estimators,
+            max_depth=rf_max_depth,
             random_state=random_state,
             class_weight="balanced",
             n_jobs=-1,
@@ -99,7 +142,7 @@ def build_models(random_state: int) -> dict[str, object]:
 
 
 def evaluate_model(model: object, X_test: pd.DataFrame, y_test: pd.Series) -> dict[str, object]:
-    """Calcula as métricas principais de classificação no conjunto de teste."""
+    """Calcula as metricas principais de classificacao no conjunto de teste."""
     predictions = model.predict(X_test)
     return {
         "accuracy": accuracy_score(y_test, predictions),
@@ -111,10 +154,7 @@ def evaluate_model(model: object, X_test: pd.DataFrame, y_test: pd.Series) -> di
 
 
 def choose_best_model(results: dict[str, dict[str, object]]) -> str:
-    """Seleciona o melhor modelo priorizando F1 macro e depois accuracy.
-
-    O F1 macro é priorizado porque o problema possui desbalanceamento entre classes.
-    """
+    """Seleciona o melhor modelo priorizando F1 macro e depois accuracy."""
     ranking = sorted(
         results.items(),
         key=lambda item: (item[1]["f1_macro"], item[1]["accuracy"]),
@@ -124,7 +164,7 @@ def choose_best_model(results: dict[str, dict[str, object]]) -> str:
 
 
 def build_metrics_dataframe(results: dict[str, dict[str, object]]) -> pd.DataFrame:
-    """Cria uma tabela consolidada com as métricas dos modelos."""
+    """Cria uma tabela consolidada com as metricas dos modelos."""
     return pd.DataFrame(
         [
             {
@@ -140,15 +180,15 @@ def build_metrics_dataframe(results: dict[str, dict[str, object]]) -> pd.DataFra
 
 
 def plot_model_comparison(metrics_df: pd.DataFrame, figures_dir: Path) -> Path:
-    """Gera um gráfico comparando as métricas dos modelos avaliados."""
+    """Gera um grafico comparando as metricas dos modelos avaliados."""
     plot_df = metrics_df.set_index("Modelo")
     fig, ax = plt.subplots(figsize=(10, 6))
     plot_df.plot(kind="bar", ax=ax, color=["#1d4ed8", "#0f766e", "#d97706", "#7c3aed"])
-    ax.set_title("Comparação de métricas dos modelos", fontsize=14, pad=14)
+    ax.set_title("Comparacao de metricas dos modelos", fontsize=14, pad=14)
     ax.set_xlabel("Modelo")
     ax.set_ylabel("Score")
     ax.set_ylim(0, 1.05)
-    ax.legend(title="Métrica")
+    ax.legend(title="Metrica")
     plt.xticks(rotation=0)
     fig.tight_layout()
 
@@ -165,26 +205,55 @@ def build_report(
     results: dict[str, dict[str, object]],
     best_model_name: str,
     comparison_figure_path: Path,
+    experiment_name: str,
+    tracking_dir: Path,
+    model_config: dict[str, object],
 ) -> str:
-    """Monta o relatório de treinamento em HTML."""
+    """Monta o relatorio de treinamento em HTML."""
     best_metrics = results[best_model_name]
     sections = [
         {
-            "title": "Visão geral",
+            "title": "Visao geral",
             "blocks": [
                 {
                     "type": "metrics_grid",
                     "items": [
-                        {"label": "Shape do treino", "value": train_df.shape},
-                        {"label": "Shape do teste", "value": test_df.shape},
-                        {"label": "Coluna alvo", "value": TARGET_COLUMN},
-                        {"label": "Modelos avaliados", "value": "LogisticRegression e RandomForest"},
+                        {
+                            "label": "Shape do treino",
+                            "value": train_df.shape,
+                            "description": "Dimensao do conjunto usado para ajuste dos modelos.",
+                        },
+                        {
+                            "label": "Shape do teste",
+                            "value": test_df.shape,
+                            "description": "Dimensao do conjunto usado na avaliacao final.",
+                        },
+                        {
+                            "label": "Coluna alvo",
+                            "value": TARGET_COLUMN,
+                            "description": "Variavel prevista pelos classificadores.",
+                        },
+                        {
+                            "label": "Modelos avaliados",
+                            "value": "LogisticRegression e RandomForest",
+                            "description": "Comparacao entre baseline linear e modelo nao linear.",
+                        },
+                        {
+                            "label": "Config atual",
+                            "value": (
+                                f"logreg_c={model_config['logreg_c']}, "
+                                f"logreg_max_iter={model_config['logreg_max_iter']}, "
+                                f"rf_n_estimators={model_config['rf_n_estimators']}, "
+                                f"rf_max_depth={model_config['rf_max_depth']}"
+                            ),
+                            "description": "Hiperparametros usados neste run para facilitar a comparacao.",
+                        },
                     ],
                 }
             ],
         },
         {
-            "title": "Comparação de métricas",
+            "title": "Comparacao de metricas",
             "blocks": [
                 {
                     "type": "table",
@@ -193,8 +262,8 @@ def build_report(
                 {
                     "type": "figure",
                     "src": f"figures/{comparison_figure_path.name}",
-                    "alt": "Comparação de métricas dos modelos",
-                    "caption": "Comparação visual entre Accuracy, Precision Macro, Recall Macro e F1 Macro.",
+                    "alt": "Comparacao de metricas dos modelos",
+                    "caption": "Comparacao visual entre Accuracy, Precision Macro, Recall Macro e F1 Macro.",
                 },
             ],
         },
@@ -207,14 +276,31 @@ def build_report(
                     "content": [
                         f"O melhor modelo foi `{best_model_name}`.",
                         (
-                            "A escolha foi feita priorizando o `F1 macro`, porque a variável alvo "
-                            "é desbalanceada e essa métrica representa melhor o desempenho médio "
+                            "A escolha foi feita priorizando o `F1 macro`, porque a variavel alvo "
+                            "e desbalanceada e essa metrica representa melhor o desempenho medio "
                             "entre todas as classes. Em caso de empate, a `accuracy` foi usada "
-                            "como critério de desempate."
+                            "como criterio de desempate."
                         ),
                         (
                             f"O modelo selecionado obteve F1 macro de `{best_metrics['f1_macro']:.4f}` "
                             f"e accuracy de `{best_metrics['accuracy']:.4f}`."
+                        ),
+                    ],
+                }
+            ],
+        },
+        {
+            "title": "Tracking de experimentos",
+            "blocks": [
+                {
+                    "type": "text",
+                    "format": "paragraph",
+                    "content": [
+                        f"O experimento foi registrado no MLflow com o nome `{experiment_name}`.",
+                        (
+                            f"O backend local de tracking foi salvo em `{tracking_dir.as_posix()}` e o run "
+                            "inclui parametros dos modelos, metricas de teste, o relatorio HTML e o artefato "
+                            "do melhor modelo."
                         ),
                     ],
                 }
@@ -233,8 +319,8 @@ def build_report(
     ]
 
     return build_structured_report(
-        title="Relatório de Treinamento de Modelos",
-        subtitle="Comparação entre modelos de classificação treinados sobre os dados processados.",
+        title="Relatorio de Treinamento de Modelos",
+        subtitle="Comparacao entre modelos de classificacao treinados sobre os dados processados.",
         sections=sections,
     )
 
@@ -245,7 +331,7 @@ def save_model_artifact(
     feature_columns: list[str],
     artifacts_dir: Path,
 ) -> Path:
-    """Salva o melhor modelo com metadados úteis para a próxima etapa."""
+    """Salva o melhor modelo com metadados uteis para a proxima etapa."""
     ensure_dir(artifacts_dir)
     model_path = artifacts_dir / "model.joblib"
     joblib.dump(
@@ -261,7 +347,7 @@ def save_model_artifact(
 
 
 def save_report(report_content: str, reports_dir: Path) -> Path:
-    """Salva o relatório de métricas em HTML."""
+    """Salva o relatorio de metricas em HTML."""
     ensure_dir(reports_dir)
     report_path = reports_dir / "model_report.html"
     report_path.write_text(report_content, encoding="utf-8")
@@ -273,13 +359,31 @@ def run_training(
     artifacts_dir: Path,
     reports_dir: Path,
     random_state: int,
-) -> tuple[Path, Path, str, dict[str, dict[str, object]]]:
-    """Executa o fluxo completo de treino, avaliação e persistência."""
+    tracking_dir: Path,
+    experiment_name: str,
+    logreg_c: float = 1.0,
+    logreg_max_iter: int = 2000,
+    rf_n_estimators: int = 300,
+    rf_max_depth: int | None = None,
+) -> tuple[Path, Path, str, dict[str, dict[str, object]], Path]:
+    """Executa o fluxo completo de treino, avaliacao, persistencia e tracking."""
     train_df, test_df = load_splits(data_dir)
     X_train, y_train = split_xy(train_df)
     X_test, y_test = split_xy(test_df)
 
-    models = build_models(random_state=random_state)
+    model_config = {
+        "logreg_c": logreg_c,
+        "logreg_max_iter": logreg_max_iter,
+        "rf_n_estimators": rf_n_estimators,
+        "rf_max_depth": rf_max_depth,
+    }
+    models = build_models(
+        random_state=random_state,
+        logreg_c=logreg_c,
+        logreg_max_iter=logreg_max_iter,
+        rf_n_estimators=rf_n_estimators,
+        rf_max_depth=rf_max_depth,
+    )
     results: dict[str, dict[str, object]] = {}
     fitted_models: dict[str, object] = {}
 
@@ -301,6 +405,9 @@ def run_training(
         results=results,
         best_model_name=best_model_name,
         comparison_figure_path=comparison_figure_path,
+        experiment_name=experiment_name,
+        tracking_dir=tracking_dir,
+        model_config=model_config,
     )
     report_path = save_report(report_content, reports_dir)
     model_path = save_model_artifact(
@@ -310,22 +417,44 @@ def run_training(
         artifacts_dir=artifacts_dir,
     )
 
-    return model_path, report_path, best_model_name, results
+    tracking_dir = log_training_experiment(
+        tracking_dir=tracking_dir,
+        experiment_name=experiment_name,
+        random_state=random_state,
+        target_column=TARGET_COLUMN,
+        train_df=train_df,
+        test_df=test_df,
+        fitted_models=fitted_models,
+        results=results,
+        best_model_name=best_model_name,
+        model_path=model_path,
+        report_path=report_path,
+        comparison_figure_path=comparison_figure_path,
+    )
+
+    return model_path, report_path, best_model_name, results, tracking_dir
 
 
 def main() -> None:
     """Ponto de entrada do script de treinamento."""
     args = parse_args()
-    model_path, report_path, best_model_name, results = run_training(
+    model_path, report_path, best_model_name, results, tracking_dir = run_training(
         data_dir=Path(args.data_dir),
         artifacts_dir=Path(args.artifacts),
         reports_dir=Path(args.reports),
         random_state=args.random_state,
+        tracking_dir=Path(args.tracking_dir),
+        experiment_name=args.experiment_name,
+        logreg_c=args.logreg_c,
+        logreg_max_iter=args.logreg_max_iter,
+        rf_n_estimators=args.rf_n_estimators,
+        rf_max_depth=args.rf_max_depth,
     )
 
     print(f"Melhor modelo: {best_model_name}")
     print(f"Modelo salvo em: {model_path}")
-    print(f"Relatório salvo em: {report_path}")
+    print(f"Relatorio salvo em: {report_path}")
+    print(f"Tracking MLflow salvo em: {tracking_dir}")
     for model_name, metrics in results.items():
         print(
             f"{model_name}: "
