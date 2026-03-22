@@ -2,23 +2,27 @@
 
 Este projeto faz parte da atividade final da UC de Aprendizado de Máquina.
 
-O oco atual é a etapa de EDA sobre a base `data/dataset_graduacao_indicada.csv`, com geração de relatório em Markdown e gráficos automáticos.
-f
+O foco atual é construir um pipeline simples e reprodutível para o dataset `data/dataset_graduacao_indicada.csv`, começando pela EDA e avançando para a preparação de dados.
+
 ## Estrutura do projeto
 
 ```text
 .
 |-- AGENTS.md
 |-- atividade_final.pdf
+|-- artifacts/
 |-- data/
 |   |-- dataset_graduacao_indicada.csv
 |   |-- graducao indicada.txt
+|   `-- processed/
 |-- reports/
 |   |-- eda.md
+|   |-- preprocess.md
 |   `-- figures/
 `-- src/
     |-- __init__.py
-    `-- eda.py
+    |-- eda.py
+    `-- preprocess.py
 ```
 
 ## Como rodar a análise exploratória
@@ -35,8 +39,6 @@ Esse comando:
 - gera o relatório em `reports/eda.md`
 - gera os gráficos em `reports/figures/`
 
-## Comando com parâmetros
-
 Se quiser informar outro arquivo de entrada ou outro diretório de saída:
 
 ```bash
@@ -48,9 +50,34 @@ Parâmetros disponíveis:
 - `--input`: caminho do arquivo CSV
 - `--out`: pasta onde o relatório e as figuras serão salvos
 
+## Como rodar a preparação de dados
+
+Na raiz do projeto, execute:
+
+```bash
+python -B -m src.preprocess --input data/dataset_graduacao_indicada.csv --outdir data/processed --artifacts artifacts
+```
+
+Esse comando:
+
+- separa `X` e `y`
+- define colunas numéricas e categóricas
+- faz split treino/teste com `random_state` fixo e estratificação
+- aplica imputação simples, `StandardScaler` e `OneHotEncoder`
+- salva o pipeline em `artifacts/preprocess_pipeline.joblib`
+- salva os datasets processados em `data/processed/train.parquet` e `data/processed/test.parquet`
+
+Parâmetros disponíveis:
+
+- `--input`: caminho do arquivo CSV
+- `--outdir`: pasta onde os datasets processados serão salvos
+- `--artifacts`: pasta onde o pipeline será salvo
+- `--test-size`: proporção do conjunto de teste
+- `--random-state`: seed fixa para reprodutibilidade
+
 ## Saídas geradas
 
-Após rodar a análise, os principais artefatos são:
+Após rodar a análise exploratória:
 
 - `reports/eda.md`
 - `reports/figures/target_distribution.png`
@@ -59,9 +86,19 @@ Após rodar a análise, os principais artefatos são:
 - `reports/figures/feature_correlation.png`
 - `reports/figures/preference_by_course.png`
 
-## O que a análise verifica
+Após rodar a preparação de dados:
 
-A EDA atual cobre:
+- `reports/preprocess.md`
+- `artifacts/preprocess_pipeline.joblib`
+- `data/processed/train.parquet`
+- `data/processed/test.parquet`
+
+## Documentação das etapas
+
+- EDA: `reports/eda.md`
+- Preparação de dados: `reports/preprocess.md`
+
+## O que a EDA cobre
 
 - visão geral do dataset
 - tipos de dados
@@ -75,25 +112,39 @@ A EDA atual cobre:
 - médias de preferência por graduação indicada
 - insights finais e conclusão
 
+## O que o preprocessamento cobre
+
+- separação entre variáveis explicativas e alvo
+- identificação de colunas numéricas e categóricas
+- imputação simples
+- normalização de variáveis numéricas
+- encoding de variáveis categóricas
+- split treino/teste com seed fixa
+- geração de artefatos carregáveis para a modelagem
+
 ## Dependências
 
-O script usa as bibliotecas:
+Os scripts usam as bibliotecas:
 
 - `pandas`
+- `numpy`
 - `matplotlib`
 - `seaborn`
-- `numpy`
+- `scikit-learn`
+- `joblib`
+- `pyarrow`
 
 Se necessário, instale com:
 
 ```bash
-pip install pandas matplotlib seaborn numpy
+pip install pandas numpy matplotlib seaborn scikit-learn joblib pyarrow
 ```
 
 ## Observação
 
-O relatório atual foi ajustado para:
+O projeto foi ajustado para:
 
 - usar a base oficial dentro da pasta `data/`
 - gerar textos em português
 - produzir gráficos mais coerentes visualmente para a entrega
+- manter o preprocessamento reprodutível e sem vazamento de dados

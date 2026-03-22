@@ -1,4 +1,8 @@
 from __future__ import annotations
+"""Script de análise exploratória para o dataset de graduação indicada.
+
+Gera um relatório em Markdown e figuras PNG a partir do CSV de entrada.
+"""
 
 import argparse
 from pathlib import Path
@@ -45,6 +49,7 @@ DISPLAY_NAMES = {
 
 
 def parse_args() -> argparse.Namespace:
+    """Lê os argumentos de linha de comando do script de EDA."""
     parser = argparse.ArgumentParser(description="Executa a análise exploratória dos dados.")
     parser.add_argument(
         "--input",
@@ -60,6 +65,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def resolve_input_path(raw_path: str) -> Path:
+    """Resolve o caminho do arquivo de entrada com alguns fallbacks úteis."""
     candidate = Path(raw_path)
     if candidate.exists():
         return candidate
@@ -76,12 +82,14 @@ def resolve_input_path(raw_path: str) -> Path:
 
 
 def ensure_output_dirs(output_dir: Path) -> Path:
+    """Garante a existência da pasta de figuras e retorna seu caminho."""
     figures_dir = output_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
     return figures_dir
 
 
 def build_course_tecnico_numeric(series: pd.Series) -> pd.Series:
+    """Converte a coluna categórica Curso_Tecnico para formato binário."""
     normalized = series.astype(str).str.strip().str.lower()
     mapping = {"sim": 1, "nao": 0, "não": 0}
     encoded = normalized.map(mapping)
@@ -94,6 +102,7 @@ def build_course_tecnico_numeric(series: pd.Series) -> pd.Series:
 
 
 def dataframe_to_markdown(df: pd.DataFrame) -> str:
+    """Converte um DataFrame em tabela Markdown simples."""
     table = df.copy()
     index_name = table.index.name or "index"
     table = table.reset_index().rename(columns={"index": index_name})
@@ -112,18 +121,22 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
 
 
 def rename_columns_for_display(df: pd.DataFrame) -> pd.DataFrame:
+    """Renomeia índices e colunas para nomes mais amigáveis no relatório."""
     return df.rename(index=DISPLAY_NAMES, columns=DISPLAY_NAMES)
 
 
 def format_decimal_ptbr(value: float, digits: int = 2) -> str:
+    """Formata números decimais usando vírgula como separador."""
     return f"{value:.{digits}f}".replace(".", ",")
 
 
 def format_int_ptbr(value: int) -> str:
+    """Formata inteiros com separador de milhar no padrão brasileiro."""
     return f"{value:,}".replace(",", ".")
 
 
 def plot_target_distribution(df: pd.DataFrame, figures_dir: Path) -> str:
+    """Gera o gráfico de distribuição da variável alvo."""
     target_counts = df["Graduacao_Indicada"].value_counts()
     fig, ax = plt.subplots(figsize=(12, 7))
     sns.barplot(
@@ -162,6 +175,7 @@ def plot_target_distribution(df: pd.DataFrame, figures_dir: Path) -> str:
 
 
 def plot_age_distribution(df: pd.DataFrame, figures_dir: Path) -> str:
+    """Gera um histograma da idade usando barras por idade inteira."""
     fig, ax = plt.subplots(figsize=(10, 6))
     min_age = int(df["Idade"].min())
     max_age = int(df["Idade"].max())
@@ -203,6 +217,7 @@ def plot_age_distribution(df: pd.DataFrame, figures_dir: Path) -> str:
 
 
 def plot_course_tecnico_distribution(df: pd.DataFrame, figures_dir: Path) -> str:
+    """Gera a distribuição da coluna categórica Curso_Tecnico."""
     fig, ax = plt.subplots(figsize=(7, 5))
     order = df["Curso_Tecnico"].value_counts().index
     sns.countplot(
@@ -242,6 +257,7 @@ def plot_course_tecnico_distribution(df: pd.DataFrame, figures_dir: Path) -> str
 
 
 def plot_correlation_heatmap(df: pd.DataFrame, figures_dir: Path) -> str:
+    """Gera o mapa de calor das correlações entre variáveis explicativas."""
     correlation_df = df.drop(columns=["Graduacao_Indicada"]).copy()
     correlation_df["Curso_Tecnico"] = build_course_tecnico_numeric(
         correlation_df["Curso_Tecnico"]
@@ -249,6 +265,8 @@ def plot_correlation_heatmap(df: pd.DataFrame, figures_dir: Path) -> str:
     correlation = correlation_df.corr(numeric_only=True)
     correlation = rename_columns_for_display(correlation)
 
+    # O triângulo superior e a diagonal são ocultados para destacar apenas
+    # as relações entre pares de variáveis.
     mask = np.triu(np.ones_like(correlation, dtype=bool))
     off_diagonal = correlation.where(~np.eye(len(correlation), dtype=bool))
     max_abs_corr = float(off_diagonal.abs().max().max())
@@ -284,6 +302,7 @@ def plot_correlation_heatmap(df: pd.DataFrame, figures_dir: Path) -> str:
 
 
 def plot_preference_heatmap(df: pd.DataFrame, figures_dir: Path) -> str:
+    """Gera a média das preferências agrupadas por graduação indicada."""
     grouped = (
         df.groupby("Graduacao_Indicada")[PREFERENCE_COLUMNS]
         .mean()
@@ -318,6 +337,7 @@ def plot_preference_heatmap(df: pd.DataFrame, figures_dir: Path) -> str:
 
 
 def build_report(df: pd.DataFrame, input_path: Path, figures: dict[str, str]) -> str:
+    """Monta o conteúdo do relatório final em Markdown."""
     target_counts = df["Graduacao_Indicada"].value_counts()
     target_percentage = (target_counts / len(df) * 100).round(2)
     data_types = df.dtypes.astype(str)
@@ -332,6 +352,8 @@ def build_report(df: pd.DataFrame, input_path: Path, figures: dict[str, str]) ->
     )
     correlation = correlation_df.corr(numeric_only=True)
 
+    # Mantemos apenas uma metade da matriz para identificar o par com maior
+    # correlação sem duplicar combinações.
     upper_triangle = correlation.where(
         ~pd.DataFrame(
             [[i >= j for j in range(correlation.shape[1])] for i in range(correlation.shape[0])],
@@ -477,6 +499,7 @@ def build_report(df: pd.DataFrame, input_path: Path, figures: dict[str, str]) ->
 
 
 def run_eda(input_path: Path, output_dir: Path) -> tuple[Path, list[Path]]:
+    """Executa o fluxo completo de EDA e salva relatório e figuras."""
     df = pd.read_csv(input_path)
     figures_dir = ensure_output_dirs(output_dir)
 
@@ -497,6 +520,7 @@ def run_eda(input_path: Path, output_dir: Path) -> tuple[Path, list[Path]]:
 
 
 def main() -> None:
+    """Ponto de entrada do script de análise exploratória."""
     args = parse_args()
     input_path = resolve_input_path(args.input)
     output_dir = Path(args.out)
