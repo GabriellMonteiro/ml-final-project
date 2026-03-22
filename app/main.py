@@ -1,9 +1,12 @@
 from __future__ import annotations
-"""Aplicacao FastAPI para expor o modelo treinado do projeto."""
+"""Aplicacao FastAPI para expor a API e a interface web do projeto."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, Form, HTTPException, Request, Response, status
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.predictor import PredictorService
@@ -12,6 +15,34 @@ EDUCATIONAL_MESSAGE = (
     "Este conteudo e destinado apenas para fins educacionais. "
     "Os dados exibidos sao ilustrativos e podem nao corresponder a situacoes reais."
 )
+TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+PREFERENCE_FIELDS = [
+    ("Gosta_Matematica", "Gosta de Matemática"),
+    ("Gosta_Programacao", "Gosta de Programação"),
+    ("Gosta_Biologia", "Gosta de Biologia"),
+    ("Gosta_Fisica", "Gosta de Física"),
+    ("Gosta_Quimica", "Gosta de Química"),
+    ("Gosta_Arte_Design", "Gosta de Arte e Design"),
+    ("Gosta_Comunicacao", "Gosta de Comunicação"),
+    ("Gosta_Negocios", "Gosta de Negócios"),
+    ("Gosta_Historia", "Gosta de História"),
+    ("Gosta_Geografia", "Gosta de Geografia"),
+]
+DEFAULT_FORM_DATA = {
+    "Idade": 18,
+    "Curso_Tecnico": "Sim",
+    "Anos_Para_Formar": 4,
+    "Gosta_Matematica": 3,
+    "Gosta_Programacao": 3,
+    "Gosta_Biologia": 3,
+    "Gosta_Fisica": 3,
+    "Gosta_Quimica": 3,
+    "Gosta_Arte_Design": 3,
+    "Gosta_Comunicacao": 3,
+    "Gosta_Negocios": 3,
+    "Gosta_Historia": 3,
+    "Gosta_Geografia": 3,
+}
 
 
 class PredictionRequest(BaseModel):
@@ -97,15 +128,47 @@ def get_predictor(request: Request) -> PredictorService:
     return request.app.state.predictor
 
 
-@app.get("/", tags=["Geral"])
-def read_root() -> dict[str, str]:
-    """Exibe a mensagem educacional e indica onde consultar a documentacao."""
-    return {
-        "message": EDUCATIONAL_MESSAGE,
-        "docs_url": "/docs",
-        "redoc_url": "/redoc",
-        "health_url": "/health",
+def render_home(
+    request: Request,
+    predictor: PredictorService,
+    form_data: dict[str, int | str] | None = None,
+    result: PredictionResponse | None = None,
+    error_message: str | None = None,
+    status_code: int = status.HTTP_200_OK,
+) -> HTMLResponse:
+    """Renderiza a pagina principal com formulario, status e resultado."""
+    template_context = {
+        "request": request,
+        "educational_message": EDUCATIONAL_MESSAGE,
+        "health": predictor.health_payload(),
+        "form_data": form_data or DEFAULT_FORM_DATA,
+        "result": result,
+        "error_message": error_message,
+        "preference_fields": [{"name": name, "label": label} for name, label in PREFERENCE_FIELDS],
     }
+    return TEMPLATES.TemplateResponse("index.html", template_context, status_code=status_code)
+
+
+def run_prediction(payload: PredictionRequest, predictor: PredictorService) -> PredictionResponse:
+    """Executa a predicao usando a mesma logica para JSON e formulario."""
+    if not predictor.ready:
+        raise HTTPException(status_code=503, detail="Artefatos do modelo nao estao disponiveis.")
+
+    result = predictor.predict(payload.model_dump())
+    return PredictionResponse(
+        prediction=result.prediction,
+        probability=round(result.probability * 100, 2),
+        model_name=result.model_name,
+    )
+
+
+@app.get("/", response_class=HTMLResponse, tags=["Geral"])
+def read_root(request: Request) -> HTMLResponse:
+    """Exibe a interface web principal do questionario."""
+    predictor = get_predictor(request)
+    status_code = status.HTTP_200_OK if predictor.ready else status.HTTP_503_SERVICE_UNAVAILABLE
+    error_message = None if predictor.ready else predictor.load_error or "Modelo indisponivel no momento."
+    return render_home(request=request, predictor=predictor, error_message=error_message, status_code=status_code)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Geral"])
@@ -119,14 +182,55 @@ def health_check(request: Request, response: Response) -> HealthResponse:
 
 @app.post("/predict", response_model=PredictionResponse, tags=["Predicao"])
 def predict(payload: PredictionRequest, request: Request) -> PredictionResponse:
-    """Executa uma predicao para um unico registro bruto."""
+    """Executa uma predicao para um unico registro bruto em formato JSON."""
     predictor = get_predictor(request)
-    if not predictor.ready:
-        raise HTTPException(status_code=503, detail="Artefatos do modelo nao estao disponiveis.")
+    return run_prediction(payload=payload, predictor=predictor)
 
-    result = predictor.predict(payload.model_dump())
-    return PredictionResponse(
-        prediction=result.prediction,
-        probability=result.probability,
-        model_name=result.model_name,
-    )
+
+@app.post("/web/predict", response_class=HTMLResponse, tags=["Web"])
+def predict_from_form(
+    request: Request,
+    Idade: int = Form(...),
+    Curso_Tecnico: str = Form(...),
+    Anos_Para_Formar: int = Form(...),
+    Gosta_Matematica: int = Form(...),
+    Gosta_Programacao: int = Form(...),
+    Gosta_Biologia: int = Form(...),
+    Gosta_Fisica: int = Form(...),
+    Gosta_Quimica: int = Form(...),
+    Gosta_Arte_Design: int = Form(...),
+    Gosta_Comunicacao: int = Form(...),
+    Gosta_Negocios: int = Form(...),
+    Gosta_Historia: int = Form(...),
+    Gosta_Geografia: int = Form(...),
+) -> HTMLResponse:
+    """Processa o formulario da interface web e renderiza o resultado na mesma pagina."""
+    predictor = get_predictor(request)
+    form_data = {
+        "Idade": Idade,
+        "Curso_Tecnico": Curso_Tecnico,
+        "Anos_Para_Formar": Anos_Para_Formar,
+        "Gosta_Matematica": Gosta_Matematica,
+        "Gosta_Programacao": Gosta_Programacao,
+        "Gosta_Biologia": Gosta_Biologia,
+        "Gosta_Fisica": Gosta_Fisica,
+        "Gosta_Quimica": Gosta_Quimica,
+        "Gosta_Arte_Design": Gosta_Arte_Design,
+        "Gosta_Comunicacao": Gosta_Comunicacao,
+        "Gosta_Negocios": Gosta_Negocios,
+        "Gosta_Historia": Gosta_Historia,
+        "Gosta_Geografia": Gosta_Geografia,
+    }
+
+    try:
+        payload = PredictionRequest(**form_data)
+        result = run_prediction(payload=payload, predictor=predictor)
+        return render_home(request=request, predictor=predictor, form_data=form_data, result=result)
+    except HTTPException as exc:
+        return render_home(
+            request=request,
+            predictor=predictor,
+            form_data=form_data,
+            error_message=str(exc.detail),
+            status_code=exc.status_code,
+        )

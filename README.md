@@ -170,7 +170,7 @@ No UI voce deve encontrar:
 - metricas de teste
 - artefatos do melhor modelo e do relatorio HTML
 
-## Como rodar a API de predição
+## Como rodar a API e a interface web
 
 Na raiz do projeto, execute:
 
@@ -195,19 +195,35 @@ uvicorn app.main:app --reload
 Depois abra no navegador:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/
 ```
 
-Documentações disponíveis:
+A interface principal agora fica na raiz da aplicação e permite responder o questionario sem usar o Swagger.
 
+URLs principais:
+
+- Interface web: `http://127.0.0.1:8000/`
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
+- Health check: `http://127.0.0.1:8000/health`
+
+Documentacoes disponiveis:
+
+- Swagger UI em `/docs`
+- ReDoc em `/redoc`
 
 Endpoints principais:
 
 - `GET /`
+- `POST /web/predict`
 - `GET /health`
 - `POST /predict`
+
+Fluxo recomendado para teste manual:
+
+1. Abra `http://127.0.0.1:8000/`
+2. Preencha o formulario do questionario
+3. Envie a solicitacao e confira a graduacao prevista, a probabilidade e o modelo ativo
 
 Exemplo de payload para `POST /predict`:
 
@@ -265,6 +281,7 @@ Após rodar o treinamento:
 
 Após rodar a API:
 
+- interface web em `http://127.0.0.1:8000/`
 - documentação em `http://127.0.0.1:8000/docs`
 - documentação alternativa em `http://127.0.0.1:8000/redoc`
 
@@ -368,6 +385,8 @@ Os scripts usam as bibliotecas:
 - `fastapi`
 - `uvicorn`
 - `pydantic`
+- `jinja2`
+- `python-multipart`
 
 Se necessário, instale com:
 
@@ -378,7 +397,7 @@ pip install -r requirements.txt
 Ou, se preferir instalar manualmente:
 
 ```bash
-pip install pandas numpy matplotlib seaborn scikit-learn joblib mlflow pyarrow fastapi uvicorn pydantic
+pip install pandas numpy matplotlib seaborn scikit-learn joblib mlflow pyarrow fastapi uvicorn pydantic jinja2 python-multipart
 ```
 
 ## Observação

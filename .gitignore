@@ -49,3 +49,5 @@ artifacts/model.joblib
 # Local MLflow tracking
 mlruns/
 mlflow.db
+app_server.log
+app_server.err
