@@ -19,6 +19,8 @@ from src.utils.mlflow_utils import log_training_experiment
 from src.utils.report_utils import build_structured_report
 
 TARGET_COLUMN = "Graduacao_Indicada"
+DEPLOY_RF_N_ESTIMATORS = 80
+DEPLOY_RF_MAX_DEPTH = 10
 
 
 def parse_args() -> argparse.Namespace:
@@ -330,10 +332,11 @@ def save_model_artifact(
     model: object,
     feature_columns: list[str],
     artifacts_dir: Path,
+    filename: str = "model.joblib",
 ) -> Path:
     """Salva o melhor modelo com metadados uteis para a proxima etapa."""
     ensure_dir(artifacts_dir)
-    model_path = artifacts_dir / "model.joblib"
+    model_path = artifacts_dir / filename
     joblib.dump(
         {
             "model_name": model_name,
@@ -344,6 +347,50 @@ def save_model_artifact(
         model_path,
     )
     return model_path
+
+
+def build_deploy_models(random_state: int) -> dict[str, object]:
+    """Monta variantes leves do modelo para deploy no Render."""
+    return {
+        "deploy_logreg.joblib": LogisticRegression(
+            C=1.0,
+            max_iter=2000,
+            solver="lbfgs",
+            class_weight="balanced",
+            random_state=random_state,
+        ),
+        "deploy_rf_compacto.joblib": RandomForestClassifier(
+            n_estimators=DEPLOY_RF_N_ESTIMATORS,
+            max_depth=DEPLOY_RF_MAX_DEPTH,
+            random_state=random_state,
+            class_weight="balanced",
+            n_jobs=-1,
+        ),
+    }
+
+
+def save_deploy_artifacts(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    artifacts_dir: Path,
+    random_state: int,
+) -> dict[str, Path]:
+    """Treina e salva artefatos menores dedicados ao deploy."""
+    deploy_paths: dict[str, Path] = {}
+    deploy_models = build_deploy_models(random_state=random_state)
+
+    for filename, model in deploy_models.items():
+        model.fit(X_train, y_train)
+        model_name = "LogisticRegression" if "logreg" in filename else "RandomForestCompacto"
+        deploy_paths[filename] = save_model_artifact(
+            model_name=model_name,
+            model=model,
+            feature_columns=X_train.columns.tolist(),
+            artifacts_dir=artifacts_dir,
+            filename=filename,
+        )
+
+    return deploy_paths
 
 
 def save_report(report_content: str, reports_dir: Path) -> Path:
@@ -415,6 +462,12 @@ def run_training(
         model=best_model,
         feature_columns=X_train.columns.tolist(),
         artifacts_dir=artifacts_dir,
+    )
+    save_deploy_artifacts(
+        X_train=X_train,
+        y_train=y_train,
+        artifacts_dir=artifacts_dir,
+        random_state=random_state,
     )
 
     tracking_dir = log_training_experiment(

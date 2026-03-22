@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.predictor import PredictorService
@@ -67,6 +67,8 @@ class HealthResponse(BaseModel):
     model_loaded: bool = Field(description="Indica se o modelo foi carregado com sucesso.")
     preprocess_loaded: bool = Field(description="Indica se o preprocessador foi carregado com sucesso.")
     model_name: str = Field(description="Nome do modelo ativo.")
+    model_variant: str = Field(description="Variante do modelo selecionada por configuracao.")
+    model_path: str = Field(description="Caminho do artefato escolhido para a API.")
     error: str | None = Field(default=None, description="Mensagem de erro de carga, quando existir.")
 
 
@@ -107,9 +109,11 @@ def read_root() -> dict[str, str]:
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Geral"])
-def health_check(request: Request) -> HealthResponse:
+def health_check(request: Request, response: Response) -> HealthResponse:
     """Informa o estado da aplicacao e dos artefatos carregados."""
     predictor = get_predictor(request)
+    if not predictor.ready:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return HealthResponse(**predictor.health_payload())
 
 

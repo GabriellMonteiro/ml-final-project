@@ -1,6 +1,7 @@
 from __future__ import annotations
 """Helper simples para carga de artefatos e inferencia da API."""
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,11 @@ from typing import Any
 import joblib
 import pandas as pd
 
+DEFAULT_MODEL_VARIANT = "logreg"
+DEPLOY_MODEL_PATHS = {
+    "logreg": Path("artifacts/deploy_logreg.joblib"),
+    "rf_compacto": Path("artifacts/deploy_rf_compacto.joblib"),
+}
 RAW_FEATURE_COLUMNS = [
     "Idade",
     "Curso_Tecnico",
@@ -39,14 +45,29 @@ class PredictorService:
 
     def __init__(
         self,
-        model_path: str | Path = "artifacts/model.joblib",
+        model_path: str | Path | None = None,
         preprocess_path: str | Path = "artifacts/preprocess_pipeline.joblib",
+        model_variant: str | None = None,
     ) -> None:
-        self.model_path = Path(model_path)
+        self.model_variant = (model_variant or os.getenv("MODEL_VARIANT", DEFAULT_MODEL_VARIANT)).strip()
+        self.model_path = self._resolve_model_path(model_path)
         self.preprocess_path = Path(preprocess_path)
         self.model_bundle: dict[str, Any] | None = None
         self.preprocess_pipeline: Any | None = None
         self.load_error: str | None = None
+
+    def _resolve_model_path(self, model_path: str | Path | None) -> Path:
+        """Resolve o caminho do artefato a partir da variante configurada."""
+        if model_path is not None:
+            return Path(model_path)
+
+        if self.model_variant not in DEPLOY_MODEL_PATHS:
+            valid_variants = ", ".join(sorted(DEPLOY_MODEL_PATHS))
+            raise ValueError(
+                f"MODEL_VARIANT invalida: '{self.model_variant}'. Variantes aceitas: {valid_variants}."
+            )
+
+        return DEPLOY_MODEL_PATHS[self.model_variant]
 
     def load(self) -> None:
         """Carrega modelo e pipeline uma unica vez na inicializacao."""
@@ -78,6 +99,8 @@ class PredictorService:
             "model_loaded": self.model_bundle is not None,
             "preprocess_loaded": self.preprocess_pipeline is not None,
             "model_name": self.model_name,
+            "model_variant": self.model_variant,
+            "model_path": str(self.model_path),
             "error": self.load_error,
         }
 
