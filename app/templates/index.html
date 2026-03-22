@@ -291,7 +291,7 @@
                 <label for="Curso_Tecnico">Curso técnico</label>
                 <select id="Curso_Tecnico" name="Curso_Tecnico" required>
                   <option value="Sim" {% if form_data.Curso_Tecnico == 'Sim' %}selected{% endif %}>Sim</option>
-                  <option value="Nao" {% if form_data.Curso_Tecnico == 'Nao' %}selected{% endif %}>Não</option>
+                  <option value="Não" {% if form_data.Curso_Tecnico in ['Nao', 'Não'] %}selected{% endif %}>Não</option>
                 </select>
               </div>
               <div>

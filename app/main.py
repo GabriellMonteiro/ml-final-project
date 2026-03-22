@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.predictor import PredictorService
 
@@ -68,26 +68,38 @@ class PredictionRequest(BaseModel):
         }
     )
 
-    Idade: int = Field(description="Idade do estudante.")
-    Curso_Tecnico: str = Field(description="Se o estudante possui curso tecnico. Exemplo: 'Sim' ou 'Nao'.")
-    Anos_Para_Formar: int = Field(description="Quantidade estimada de anos para concluir a graduacao.")
-    Gosta_Matematica: int = Field(description="Nivel de afinidade com matematica, de 1 a 5.")
-    Gosta_Programacao: int = Field(description="Nivel de afinidade com programacao, de 1 a 5.")
-    Gosta_Biologia: int = Field(description="Nivel de afinidade com biologia, de 1 a 5.")
-    Gosta_Fisica: int = Field(description="Nivel de afinidade com fisica, de 1 a 5.")
-    Gosta_Quimica: int = Field(description="Nivel de afinidade com quimica, de 1 a 5.")
-    Gosta_Arte_Design: int = Field(description="Nivel de afinidade com arte e design, de 1 a 5.")
-    Gosta_Comunicacao: int = Field(description="Nivel de afinidade com comunicacao, de 1 a 5.")
-    Gosta_Negocios: int = Field(description="Nivel de afinidade com negocios, de 1 a 5.")
-    Gosta_Historia: int = Field(description="Nivel de afinidade com historia, de 1 a 5.")
-    Gosta_Geografia: int = Field(description="Nivel de afinidade com geografia, de 1 a 5.")
+    Idade: int = Field(ge=14, le=100, description="Idade do estudante. Intervalo aceito: 14 a 100.")
+    Curso_Tecnico: str = Field(
+        description="Se o estudante possui curso tecnico. Valores aceitos: 'Sim' ou 'Nao'/'Não'."
+    )
+    Anos_Para_Formar: int = Field(
+        ge=1,
+        le=15,
+        description="Quantidade estimada de anos para concluir a graduacao. Intervalo aceito: 1 a 15.",
+    )
+    Gosta_Matematica: int = Field(ge=1, le=5, description="Nivel de afinidade com matematica, de 1 a 5.")
+    Gosta_Programacao: int = Field(ge=1, le=5, description="Nivel de afinidade com programacao, de 1 a 5.")
+    Gosta_Biologia: int = Field(ge=1, le=5, description="Nivel de afinidade com biologia, de 1 a 5.")
+    Gosta_Fisica: int = Field(ge=1, le=5, description="Nivel de afinidade com fisica, de 1 a 5.")
+    Gosta_Quimica: int = Field(ge=1, le=5, description="Nivel de afinidade com quimica, de 1 a 5.")
+    Gosta_Arte_Design: int = Field(ge=1, le=5, description="Nivel de afinidade com arte e design, de 1 a 5.")
+    Gosta_Comunicacao: int = Field(ge=1, le=5, description="Nivel de afinidade com comunicacao, de 1 a 5.")
+    Gosta_Negocios: int = Field(ge=1, le=5, description="Nivel de afinidade com negocios, de 1 a 5.")
+    Gosta_Historia: int = Field(ge=1, le=5, description="Nivel de afinidade com historia, de 1 a 5.")
+    Gosta_Geografia: int = Field(ge=1, le=5, description="Nivel de afinidade com geografia, de 1 a 5.")
+
+    @field_validator("Curso_Tecnico", mode="before")
+    @classmethod
+    def normalize_curso_tecnico(cls, value: str) -> str:
+        """Aceita pequenas variacoes textuais e padroniza a categoria."""
+        return PredictorService.normalize_course_tecnico(value)
 
 
 class PredictionResponse(BaseModel):
     """Schema de resposta do endpoint de predicao."""
 
     prediction: str = Field(description="Graduacao indicada pelo modelo.")
-    probability: float = Field(description="Probabilidade estimada da classe prevista.")
+    probability: float = Field(description="Probabilidade estimada da classe prevista, em percentual de 0 a 100.")
     model_name: str = Field(description="Nome do modelo carregado pela API.")
 
 
@@ -154,7 +166,11 @@ def run_prediction(payload: PredictionRequest, predictor: PredictorService) -> P
     if not predictor.ready:
         raise HTTPException(status_code=503, detail="Artefatos do modelo nao estao disponiveis.")
 
-    result = predictor.predict(payload.model_dump())
+    try:
+        result = predictor.predict(payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     return PredictionResponse(
         prediction=result.prediction,
         probability=round(result.probability * 100, 2),
@@ -226,6 +242,15 @@ def predict_from_form(
         payload = PredictionRequest(**form_data)
         result = run_prediction(payload=payload, predictor=predictor)
         return render_home(request=request, predictor=predictor, form_data=form_data, result=result)
+    except ValidationError as exc:
+        error_message = "; ".join(error["msg"] for error in exc.errors())
+        return render_home(
+            request=request,
+            predictor=predictor,
+            form_data=form_data,
+            error_message=error_message,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
     except HTTPException as exc:
         return render_home(
             request=request,

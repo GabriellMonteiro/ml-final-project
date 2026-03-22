@@ -1,236 +1,157 @@
-# Projeto de Análise Exploratória e Pipeline de ML
+# Projeto Final de ML com Pipeline, API e Deploy
 
-Este projeto faz parte da atividade final da UC de Aprendizado de Máquina.
+Projeto da atividade final de Aprendizado de Máquina com foco em um fluxo simples de ponta a ponta: EDA, preprocessamento, treinamento, avaliação, persistência do modelo, API com FastAPI e deploy no Render.
 
-O foco atual é construir um pipeline simples e reprodutível para o dataset `data/dataset_graduacao_indicada.csv`, começando pela EDA e avançando para a preparação de dados.
+O dataset usado está em `data/dataset_graduacao_indicada.csv` e o alvo previsto é `Graduacao_Indicada`.
 
-## Estrutura do projeto
+## Objetivo do projeto
+
+Entregar um pipeline de Machine Learning funcional e reproduzível para recomendação de graduação, seguindo um escopo MLOps simples:
+
+- carregar dados
+- fazer EDA
+- limpar e transformar os dados
+- testar `LogisticRegression` e `RandomForest`
+- comparar métricas
+- salvar artefatos
+- disponibilizar predição via API
+- publicar no Render
+
+## Estrutura do repositório
 
 ```text
 .
-|-- AGENTS.md
 |-- app/
-|-- atividade_final.pdf
+|   |-- main.py
+|   |-- predictor.py
+|   `-- templates/
 |-- artifacts/
+|   |-- preprocess_pipeline.joblib
+|   |-- model.joblib
+|   |-- deploy_logreg.joblib
+|   `-- deploy_rf_compacto.joblib
 |-- data/
 |   |-- dataset_graduacao_indicada.csv
-|   |-- graducao indicada.txt
 |   `-- processed/
 |-- reports/
 |   |-- eda.html
 |   |-- preprocess.html
 |   |-- model_report.html
 |   `-- figures/
-`-- src/
-    |-- __init__.py
-    |-- eda.py
-    |-- preprocess.py
-    |-- run_pipeline.py
-    |-- utils/
-    |   `-- report_utils.py
-    `-- train.py
+|-- src/
+|   |-- eda.py
+|   |-- preprocess.py
+|   |-- train.py
+|   `-- run_pipeline.py
+|-- requirements.txt
+`-- render.yaml
 ```
 
-## Como rodar o pipeline completo
+## Quick Start
 
-Na raiz do projeto, execute:
+### 1. Instalar dependências
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Rodar o pipeline completo
 
 ```bash
 python -B -m src.run_pipeline
 ```
 
-Esse comando executa em sequência:
+Esse comando executa, na ordem:
 
-- EDA
-- preparação de dados
-- treinamento de modelos
-- registro de experimentos no MLflow local
+1. EDA
+2. preprocessamento
+3. treinamento e comparação de modelos
+4. geração de artefatos e relatórios
+5. registro local no MLflow
 
-Parâmetros disponíveis:
-
-- `--input`: caminho do arquivo CSV
-- `--reports`: diretório dos relatórios HTML
-- `--processed`: diretório dos datasets processados
-- `--artifacts`: diretório dos artefatos
-- `--test-size`: proporção do conjunto de teste
-- `--random-state`: seed fixa para reprodutibilidade
-- `--tracking-dir`: diretório local dos runs do MLflow
-- `--experiment-name`: nome do experimento no MLflow
-- `--logreg-c`: regularização da LogisticRegression
-- `--logreg-max-iter`: iterações máximas da LogisticRegression
-- `--rf-n-estimators`: quantidade de árvores da RandomForest
-- `--rf-max-depth`: profundidade máxima da RandomForest
-
-## Como rodar a análise exploratória
-
-Na raiz do projeto, execute:
-
-```bash
-python -B -m src.eda
-```
-
-Esse comando:
-
-- lê a base em `data/dataset_graduacao_indicada.csv`
-- gera o relatório em `reports/eda.html`
-- gera os gráficos em `reports/figures/`
-
-Se quiser informar outro arquivo de entrada ou outro diretório de saída:
-
-```bash
-python -B -m src.eda --input data/dataset_graduacao_indicada.csv --out reports
-```
-
-Parâmetros disponíveis:
-
-- `--input`: caminho do arquivo CSV
-- `--out`: pasta onde o relatório e as figuras serão salvos
-
-## Como rodar a preparação de dados
-
-Na raiz do projeto, execute:
-
-```bash
-python -B -m src.preprocess --input data/dataset_graduacao_indicada.csv --outdir data/processed --artifacts artifacts
-```
-
-Esse comando:
-
-- separa `X` e `y`
-- define colunas numéricas e categóricas
-- faz split treino/teste com `random_state` fixo e estratificação
-- aplica imputação simples, `StandardScaler` e `OneHotEncoder`
-- salva o pipeline em `artifacts/preprocess_pipeline.joblib`
-- salva os datasets processados em `data/processed/train.parquet` e `data/processed/test.parquet`
-- gera o relatório em `reports/preprocess.html`
-
-Parâmetros disponíveis:
-
-- `--input`: caminho do arquivo CSV
-- `--outdir`: pasta onde os datasets processados serão salvos
-- `--artifacts`: pasta onde o pipeline será salvo
-- `--test-size`: proporção do conjunto de teste
-- `--random-state`: seed fixa para reprodutibilidade
-
-## Como rodar o treinamento de modelos
-
-Na raiz do projeto, execute:
-
-```bash
-python -B -m src.train --data_dir data/processed --artifacts artifacts --reports reports
-```
-
-Esse comando:
-
-- carrega os datasets processados de treino e teste
-- treina `LogisticRegression` e `RandomForest`
-- calcula `accuracy`, `precision macro`, `recall macro` e `f1 macro`
-- compara os resultados e escolhe o melhor modelo
-- salva o melhor artefato em `artifacts/model.joblib`
-- gera o relatório em `reports/model_report.html`
-- registra parâmetros, métricas e artefatos em `mlruns/`
-
-Parâmetros disponíveis:
-
-- `--data_dir`: pasta com `train.parquet` e `test.parquet`
-- `--artifacts`: pasta onde o melhor modelo será salvo
-- `--reports`: pasta onde o relatório será salvo
-- `--random-state`: seed fixa para reprodutibilidade
-- `--tracking-dir`: diretório local dos runs do MLflow
-- `--experiment-name`: nome do experimento no MLflow
-- `--logreg-c`: regularização da LogisticRegression
-- `--logreg-max-iter`: iterações máximas da LogisticRegression
-- `--rf-n-estimators`: quantidade de árvores da RandomForest
-- `--rf-max-depth`: profundidade máxima da RandomForest
-
-Exemplo de run alternativo para comparação no MLflow:
-
-```bash
-python -B -m src.train --logreg-c 0.5 --logreg-max-iter 3000 --rf-n-estimators 500 --rf-max-depth 18
-```
-
-## Como visualizar os experimentos no MLflow
-
-Depois de rodar o treinamento, execute:
-
-```bash
-mlflow ui --backend-store-uri mlruns
-```
-
-Em seguida, abra no navegador:
-
-```text
-http://127.0.0.1:5000
-```
-
-No UI voce deve encontrar:
-
-- um run novo para cada execucao de treino
-- parametros dos modelos avaliados
-- metricas de teste
-- artefatos do melhor modelo e do relatorio HTML
-
-## Como rodar a API e a interface web
-
-Na raiz do projeto, execute:
+### 3. Subir a API localmente
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Para escolher a variante servida pela API localmente:
-
-```bash
-$env:MODEL_VARIANT="logreg"
-uvicorn app.main:app --reload
-```
-
-ou
-
-```bash
-$env:MODEL_VARIANT="rf_compacto"
-uvicorn app.main:app --reload
-```
-
-Depois abra no navegador:
-
-```text
-http://127.0.0.1:8000/
-```
-
-A interface principal agora fica na raiz da aplicação e permite responder o questionario sem usar o Swagger.
-
-URLs principais:
+Abrir no navegador:
 
 - Interface web: `http://127.0.0.1:8000/`
-- Swagger UI: `http://127.0.0.1:8000/docs`
+- Swagger: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
 - Health check: `http://127.0.0.1:8000/health`
 
-Documentacoes disponiveis:
+## Evidências geradas pelo projeto
 
-- Swagger UI em `/docs`
-- ReDoc em `/redoc`
+Após a execução do pipeline completo, o projeto produz:
 
-Endpoints principais:
+- `reports/eda.html`: relatório da análise exploratória
+- `reports/preprocess.html`: relatório da etapa de tratamento e transformação
+- `reports/model_report.html`: comparação entre `LogisticRegression` e `RandomForest`
+- `reports/figures/`: gráficos da EDA, do split e da comparação de métricas
+- `data/processed/train.parquet` e `data/processed/test.parquet`
+- `artifacts/preprocess_pipeline.joblib`
+- `artifacts/model.joblib`: melhor modelo do fluxo local
+- `artifacts/deploy_logreg.joblib` e `artifacts/deploy_rf_compacto.joblib`: variantes leves para publicação
+- `mlruns/`: histórico local de experimentos no MLflow
+
+## O que foi implementado no pipeline
+
+### EDA
+
+- verificação de tipos de dados
+- verificação de valores nulos
+- análise da distribuição da variável alvo
+- correlação entre features
+- gráficos e insights finais em HTML
+
+### Preprocessamento
+
+- separação entre `X` e `y`
+- identificação de colunas numéricas e categóricas
+- imputação simples
+- `StandardScaler` para colunas numéricas
+- `OneHotEncoder` para variáveis categóricas
+- split treino/teste com estratificação e `random_state=42`
+
+### Modelagem
+
+- treinamento de `LogisticRegression`
+- treinamento de `RandomForest`
+- avaliação com:
+  - `accuracy`
+  - `precision_macro`
+  - `recall_macro`
+  - `f1_macro`
+- escolha do melhor modelo priorizando `f1_macro` e, em empate, `accuracy`
+
+## API de predição
+
+A API foi implementada com FastAPI e serve tanto JSON quanto interface web.
+
+### Endpoints principais
 
 - `GET /`
-- `POST /web/predict`
 - `GET /health`
 - `POST /predict`
+- `POST /web/predict`
 
-Fluxo recomendado para teste manual:
+### Contrato de entrada
 
-1. Abra `http://127.0.0.1:8000/`
-2. Preencha o formulario do questionario
-3. Envie a solicitacao e confira a graduacao prevista, a probabilidade e o modelo ativo
+O payload da API valida os dados antes da inferência:
 
-Exemplo de payload para `POST /predict`:
+- `Idade`: entre 14 e 100
+- `Anos_Para_Formar`: entre 1 e 15
+- preferências: de 1 a 5
+- `Curso_Tecnico`: aceita `Sim`, `Nao` e `Não`, com normalização interna
+
+### Exemplo de payload
 
 ```json
 {
   "Idade": 45,
-  "Curso_Tecnico": "Sim",
+  "Curso_Tecnico": "Não",
   "Anos_Para_Formar": 7,
   "Gosta_Matematica": 1,
   "Gosta_Programacao": 4,
@@ -245,67 +166,55 @@ Exemplo de payload para `POST /predict`:
 }
 ```
 
-Exemplo com `curl`:
+### Exemplo com `curl`
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/predict" \
   -H "Content-Type: application/json" \
-  -d "{\"Idade\":45,\"Curso_Tecnico\":\"Sim\",\"Anos_Para_Formar\":7,\"Gosta_Matematica\":1,\"Gosta_Programacao\":4,\"Gosta_Biologia\":2,\"Gosta_Fisica\":3,\"Gosta_Quimica\":5,\"Gosta_Arte_Design\":3,\"Gosta_Comunicacao\":1,\"Gosta_Negocios\":1,\"Gosta_Historia\":5,\"Gosta_Geografia\":1}"
+  -d "{\"Idade\":45,\"Curso_Tecnico\":\"Não\",\"Anos_Para_Formar\":7,\"Gosta_Matematica\":1,\"Gosta_Programacao\":4,\"Gosta_Biologia\":2,\"Gosta_Fisica\":3,\"Gosta_Quimica\":5,\"Gosta_Arte_Design\":3,\"Gosta_Comunicacao\":1,\"Gosta_Negocios\":1,\"Gosta_Historia\":5,\"Gosta_Geografia\":1}"
 ```
 
-## Saídas geradas
+### Teste manual recomendado
 
-Após rodar a análise exploratória:
+1. Abrir `http://127.0.0.1:8000/`
+2. Preencher o formulário
+3. Enviar a predição
+4. Conferir curso previsto, probabilidade e modelo ativo
+5. Validar `GET /health` para confirmar carga dos artefatos
 
-- `reports/eda.html`
-- `reports/figures/target_distribution.png`
-- `reports/figures/curso_tecnico_distribution.png`
-- `reports/figures/age_distribution.png`
-- `reports/figures/feature_correlation.png`
-- `reports/figures/preference_by_course.png`
+## MLflow
 
-Após rodar a preparação de dados:
+Depois do treinamento, os experimentos podem ser visualizados localmente com:
 
-- `reports/preprocess.html`
-- `artifacts/preprocess_pipeline.joblib`
-- `data/processed/train.parquet`
-- `data/processed/test.parquet`
+```bash
+mlflow ui --backend-store-uri mlruns
+```
 
-Após rodar o treinamento:
+Interface local:
 
-- `reports/model_report.html`
-- `artifacts/model.joblib`
-- `artifacts/deploy_logreg.joblib`
-- `artifacts/deploy_rf_compacto.joblib`
-- `mlruns/`
+```text
+http://127.0.0.1:5000
+```
 
-Após rodar a API:
+No MLflow ficam registrados:
 
-- interface web em `http://127.0.0.1:8000/`
-- documentação em `http://127.0.0.1:8000/docs`
-- documentação alternativa em `http://127.0.0.1:8000/redoc`
-
-## Documentação das etapas
-
-- EDA: `reports/eda.html`
-- Preparação de dados: `reports/preprocess.html`
-- Treinamento de modelos: `reports/model_report.html`
-- Prompt base para relatórios: `context/html_report_prompt.md`
+- parâmetros dos modelos
+- métricas de teste
+- artefatos do melhor modelo
+- relatório HTML de treinamento
 
 ## Deploy no Render
 
-O projeto esta preparado para deploy no Render sem Docker, usando o arquivo `render.yaml`.
+O projeto está preparado para deploy sem Docker usando `render.yaml`.
 
-Arquivos principais para o deploy:
+Configuração atual:
 
-- `render.yaml`
-- `requirements.txt`
-- `app/main.py`
-- `artifacts/preprocess_pipeline.joblib`
-- `artifacts/deploy_logreg.joblib`
-- `artifacts/deploy_rf_compacto.joblib`
+- runtime Python
+- instalação com `pip install -r requirements.txt`
+- start com `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- health check em `/health`
 
-Variavel de ambiente usada pela API:
+### Variável de ambiente
 
 - `MODEL_VARIANT`
 
@@ -314,65 +223,81 @@ Valores suportados:
 - `logreg`
 - `rf_compacto`
 
-Valor padrao recomendado para a primeira publicacao:
+Valor padrão no deploy atual:
 
-- `MODEL_VARIANT=logreg`
+```text
+MODEL_VARIANT=logreg
+```
 
-Passos de deploy:
+### Passos de publicação
 
-1. Suba o repositório no GitHub com os artefatos de deploy versionados.
-2. No Render, crie um novo Blueprint ou Web Service a partir do repositório.
-3. Confirme o uso do `render.yaml`.
-4. Verifique se a env var `MODEL_VARIANT` esta definida como `logreg` ou `rf_compacto`.
-5. Aguarde o build instalar as dependencias com `pip install -r requirements.txt`.
-6. O start da aplicacao sera feito com `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+1. Subir o repositório para o GitHub com os artefatos de deploy versionados.
+2. Criar um novo serviço no Render usando o repositório.
+3. Confirmar o uso do arquivo `render.yaml`.
+4. Validar a env var `MODEL_VARIANT`.
+5. Aguardar o build e testar a aplicação publicada.
 
-Validacoes apos deploy:
+### Validações após deploy
 
 - `GET /health`
 - `GET /docs`
 - `POST /predict`
 
-Observacao:
+## Comandos por etapa
 
-- o artefato `artifacts/model.joblib` continua sendo o melhor modelo local do fluxo de treino
-- o ambiente publicado no Render usa uma variante leve de deploy escolhida por `MODEL_VARIANT`
+### EDA
 
-## O que a EDA cobre
+```bash
+python -B -m src.eda
+```
 
-- visão geral do dataset
-- tipos de dados
-- valores nulos
-- linhas duplicadas
-- estatísticas descritivas
-- distribuição da variável alvo
-- distribuição de `Curso_Tecnico`
-- distribuição de idade
-- correlação entre features
-- médias de preferência por graduação indicada
-- insights finais e conclusão
+Com parâmetros:
 
-## O que o preprocessamento cobre
+```bash
+python -B -m src.eda --input data/dataset_graduacao_indicada.csv --out reports
+```
 
-- separação entre variáveis explicativas e alvo
-- identificação de colunas numéricas e categóricas
-- imputação simples
-- normalização de variáveis numéricas
-- encoding de variáveis categóricas
-- split treino/teste com seed fixa
-- geração de artefatos carregáveis para a modelagem
+### Preprocessamento
 
-## O que o treinamento cobre
+```bash
+python -B -m src.preprocess --input data/dataset_graduacao_indicada.csv --outdir data/processed --artifacts artifacts --reports reports
+```
 
-- carregamento dos datasets processados
-- treinamento de dois modelos de classificação
-- comparação de métricas no conjunto de teste
-- seleção do melhor modelo
-- serialização do modelo final para as próximas etapas
+### Treinamento
 
-## Dependências
+```bash
+python -B -m src.train --data_dir data/processed --artifacts artifacts --reports reports
+```
 
-Os scripts usam as bibliotecas:
+Exemplo de experimento alternativo:
+
+```bash
+python -B -m src.train --logreg-c 0.5 --logreg-max-iter 3000 --rf-n-estimators 500 --rf-max-depth 18
+```
+
+### Pipeline completo
+
+```bash
+python -B -m src.run_pipeline
+```
+
+### API local com seleção de variante
+
+PowerShell:
+
+```powershell
+$env:MODEL_VARIANT="logreg"
+uvicorn app.main:app --reload
+```
+
+ou
+
+```powershell
+$env:MODEL_VARIANT="rf_compacto"
+uvicorn app.main:app --reload
+```
+
+## Dependências principais
 
 - `pandas`
 - `numpy`
@@ -388,23 +313,6 @@ Os scripts usam as bibliotecas:
 - `jinja2`
 - `python-multipart`
 
-Se necessário, instale com:
+## Observação final
 
-```bash
-pip install -r requirements.txt
-```
-
-Ou, se preferir instalar manualmente:
-
-```bash
-pip install pandas numpy matplotlib seaborn scikit-learn joblib mlflow pyarrow fastapi uvicorn pydantic jinja2 python-multipart
-```
-
-## Observação
-
-O projeto foi ajustado para:
-
-- usar a base oficial dentro da pasta `data/`
-- gerar textos em português
-- produzir gráficos mais coerentes visualmente para a entrega
-- manter o preprocessamento reprodutível e sem vazamento de dados
+O projeto foi mantido propositalmente simples, com scripts diretos e foco em funcionalidade local, para atender ao escopo de um MLOps enxuto e pronto para demonstração.
