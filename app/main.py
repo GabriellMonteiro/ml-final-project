@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request, Response, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -16,6 +16,24 @@ EDUCATIONAL_MESSAGE = (
     "Os dados exibidos sao ilustrativos e podem nao corresponder a situacoes reais."
 )
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+REPORTS_DIR = Path("reports")
+REPORT_LINKS = [
+    {
+        "title": "EDA",
+        "description": "Analise exploratoria da base, distribuicoes, correlacoes e insights iniciais.",
+        "href": "/reports/eda",
+    },
+    {
+        "title": "Preprocessamento",
+        "description": "Tratamentos aplicados, split de treino/teste e artefatos da etapa de preparacao.",
+        "href": "/reports/preprocess",
+    },
+    {
+        "title": "Treinamento",
+        "description": "Comparacao entre modelos, metricas finais e selecao do melhor candidato.",
+        "href": "/reports/model",
+    },
+]
 PREFERENCE_FIELDS = [
     ("Gosta_Matematica", "Gosta de Matemática"),
     ("Gosta_Programacao", "Gosta de Programação"),
@@ -157,6 +175,7 @@ def render_home(
         "result": result,
         "error_message": error_message,
         "preference_fields": [{"name": name, "label": label} for name, label in PREFERENCE_FIELDS],
+        "report_links": REPORT_LINKS,
     }
     return TEMPLATES.TemplateResponse("index.html", template_context, status_code=status_code)
 
@@ -178,6 +197,15 @@ def run_prediction(payload: PredictionRequest, predictor: PredictorService) -> P
     )
 
 
+def serve_report(filename: str, report_label: str) -> FileResponse:
+    """Serve um relatorio HTML ja gerado pelo pipeline."""
+    report_path = REPORTS_DIR / filename
+    if not report_path.exists():
+        raise HTTPException(status_code=404, detail=f"Relatorio de {report_label} nao encontrado.")
+
+    return FileResponse(report_path, media_type="text/html")
+
+
 @app.get("/", response_class=HTMLResponse, tags=["Geral"])
 def read_root(request: Request) -> HTMLResponse:
     """Exibe a interface web principal do questionario."""
@@ -194,6 +222,24 @@ def health_check(request: Request, response: Response) -> HealthResponse:
     if not predictor.ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     return HealthResponse(**predictor.health_payload())
+
+
+@app.get("/reports/eda", tags=["Relatorios"])
+def read_eda_report() -> FileResponse:
+    """Exibe o relatorio HTML da etapa de EDA."""
+    return serve_report(filename="eda.html", report_label="EDA")
+
+
+@app.get("/reports/preprocess", tags=["Relatorios"])
+def read_preprocess_report() -> FileResponse:
+    """Exibe o relatorio HTML da etapa de preprocessamento."""
+    return serve_report(filename="preprocess.html", report_label="preprocessamento")
+
+
+@app.get("/reports/model", tags=["Relatorios"])
+def read_model_report() -> FileResponse:
+    """Exibe o relatorio HTML da etapa de treinamento."""
+    return serve_report(filename="model_report.html", report_label="treinamento")
 
 
 @app.post("/predict", response_model=PredictionResponse, tags=["Predicao"])
