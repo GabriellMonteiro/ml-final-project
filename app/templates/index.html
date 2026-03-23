@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Questionário de Predição de Graduação</title>
+  <title>Question&aacute;rio de Predi&ccedil;&atilde;o de Gradua&ccedil;&atilde;o</title>
   <style>
     :root {
       --bg: #f4f7f5;
@@ -29,21 +29,46 @@
         radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 28%),
         linear-gradient(180deg, #eef5f3 0%, #f7faf9 100%);
       color: var(--text);
+      position: relative;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.16);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+      z-index: 1;
+    }
+
+    body.page-focus-active::before {
+      opacity: 1;
     }
 
     .page {
       max-width: 1120px;
       margin: 0 auto;
-      padding: 28px 18px 40px;
+      padding: 24px 18px 40px;
     }
 
     .hero {
       background: linear-gradient(135deg, #0f766e, #134e4a);
       color: #fff;
       border-radius: 22px;
-      padding: 28px;
+      padding: 22px 24px;
       box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
-      margin-bottom: 22px;
+      margin-bottom: 20px;
+    }
+
+    .hero-inner {
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero-copy {
+      max-width: 780px;
     }
 
     .hero h1 {
@@ -58,9 +83,18 @@
       color: rgba(255, 255, 255, 0.92);
     }
 
+    .note {
+      background: var(--warning);
+      border: 1px solid #f3d17c;
+      border-radius: 14px;
+      padding: 14px 16px;
+      line-height: 1.55;
+      color: black;
+    }
+
     .layout {
       display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
+      grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.75fr);
       gap: 20px;
       align-items: start;
     }
@@ -74,58 +108,65 @@
     }
 
     .card h2 {
-      margin: 0 0 14px;
+      margin: 0;
       font-size: 1.2rem;
+    }
+
+    .card h3 {
+      margin: 0;
     }
 
     .muted {
       color: var(--muted);
     }
 
-    .note {
-      background: var(--warning);
-      border: 1px solid #f3d17c;
-      border-radius: 14px;
-      padding: 14px 16px;
-      margin: 14px 0 0;
-      line-height: 1.55;
-      color: black;
+    .form-card {
+      padding: 24px;
     }
 
-    .status-grid {
+    .section-head {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 8px;
+      gap: 6px;
+      margin-bottom: 20px;
     }
 
-    .status-item {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      background: #f8fbfa;
-    }
-
-    .status-item strong {
-      display: block;
+    .eyebrow {
       font-size: 0.9rem;
-      color: var(--muted);
-      margin-bottom: 6px;
+      font-weight: 700;
+      color: var(--accent-strong);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
-    .status-item span {
-      font-size: 1rem;
-      font-weight: 600;
+    .section-head p {
+      margin: 0;
+      line-height: 1.6;
     }
 
     form {
       display: grid;
-      gap: 22px;
+      gap: 18px;
     }
 
     .form-section {
       display: grid;
-      gap: 14px;
+      gap: 16px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdfc 100%);
+    }
+
+    .form-section-head {
+      display: grid;
+      gap: 4px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(217, 227, 223, 0.9);
+    }
+
+    .form-section-head p {
+      margin: 0;
+      line-height: 1.55;
     }
 
     .form-grid {
@@ -134,11 +175,20 @@
       gap: 14px;
     }
 
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field-wide {
+      grid-column: 1 / -1;
+    }
+
     label {
       display: block;
       font-size: 0.93rem;
       font-weight: 600;
-      margin-bottom: 6px;
+      margin-bottom: 0;
     }
 
     input,
@@ -152,9 +202,15 @@
       color: var(--text);
     }
 
+    .slider-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
     .slider-row {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 12px;
       align-items: center;
       border: 1px solid var(--border);
@@ -170,10 +226,16 @@
     }
 
     .slider-value {
-      min-width: 28px;
+      min-width: 34px;
       text-align: center;
       font-weight: 700;
       color: var(--accent-strong);
+      padding: 8px 0;
+    }
+
+    .form-actions {
+      padding-top: 4px;
+      border-top: 1px solid rgba(217, 227, 223, 0.9);
     }
 
     button {
@@ -189,23 +251,101 @@
       box-shadow: 0 14px 26px rgba(15, 118, 110, 0.18);
     }
 
+    .sidebar {
+      display: grid;
+      gap: 16px;
+    }
+
+    .sidebar-card {
+      display: grid;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .sidebar-head {
+      display: grid;
+      gap: 6px;
+    }
+
+    .sidebar-head p {
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .status-item {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: #f8fbfa;
+      min-height: 84px;
+    }
+
+    .status-item strong {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .status-item span {
+      font-size: 1rem;
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .quick-links a {
+      text-decoration: none;
+      color: var(--accent-strong);
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+
     .result-box {
       background: var(--result);
       border: 1px solid #b9e2d7;
       border-radius: 16px;
       padding: 18px;
-      margin-top: 16px;
+      display: grid;
+      gap: 12px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .feedback-entry {
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.35s ease, transform 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .feedback-entry.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
     }
 
     .result-box h3,
     .error-box h3 {
-      margin: 0 0 10px;
+      margin: 0;
     }
 
     .result-main {
       font-size: 1.45rem;
       font-weight: 800;
-      margin-bottom: 10px;
       color: var(--accent-strong);
     }
 
@@ -220,24 +360,48 @@
       border: 1px solid #efb6b6;
       border-radius: 16px;
       padding: 18px;
-      margin-top: 16px;
-    }
-
-    .quick-links {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
       gap: 10px;
-      margin-top: 16px;
+      position: relative;
+      z-index: 2;
     }
 
-    .quick-links a {
+    .error-box p {
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    .reports-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .report-card {
+      display: block;
       text-decoration: none;
-      color: var(--accent-strong);
-      font-weight: 600;
-      padding: 8px 12px;
-      border-radius: 999px;
+      color: var(--text);
       border: 1px solid var(--border);
-      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      background: #fbfdfc;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .report-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .report-card strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--accent-strong);
+    }
+
+    .report-card span {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.95rem;
     }
 
     @media (max-width: 920px) {
@@ -252,14 +416,20 @@
       }
 
       .hero {
-        padding: 22px 18px;
+        padding: 20px 18px;
       }
 
       .hero h1 {
         font-size: 1.6rem;
       }
 
+      .form-card,
+      .sidebar-card {
+        padding: 18px;
+      }
+
       .form-grid,
+      .slider-grid,
       .status-grid {
         grid-template-columns: 1fr;
       }
@@ -269,32 +439,45 @@
 <body>
   <main class="page">
     <section class="hero">
-      <h1>Questionário de Predição de Graduação</h1>
-      <p>Preencha o formulário abaixo para testar a recomendação de graduação com base no perfil do estudante. Esta interface usa a mesma lógica da API pública da aplicação.</p>
-      <div class="note">{{ educational_message }}</div>
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <h1>Sistema de Predi&ccedil;&atilde;o de Gradua&ccedil;&atilde;o</h1>
+          <p>Use esta interface para testar a previs&atilde;o do modelo, acompanhar o status da aplica&ccedil;&atilde;o e acessar os relat&oacute;rios gerados pelo pipeline do projeto.</p>
+        </div>
+        <div class="note">{{ educational_message }}</div>
+      </div>
     </section>
 
     <div class="layout">
-      <section class="card">
-        <h2>Responder questionário</h2>
-        <p class="muted">Os campos seguem o mesmo formato usado pela API, mas organizados para facilitar o teste manual da predição.</p>
+      <section class="card form-card">
+        <div class="section-head">
+          <span class="eyebrow">Predi&ccedil;&atilde;o</span>
+          <h2>Responder question&aacute;rio</h2>
+          <p class="muted">Preencha os dados do perfil do estudante e envie para obter a gradua&ccedil;&atilde;o prevista pelo modelo ativo.</p>
+        </div>
 
         <form action="/web/predict" method="post">
           <div class="form-section">
-            <h2>Dados básicos</h2>
+            <div class="form-section-head">
+              <h2>Dados b&aacute;sicos</h2>
+              <p class="muted">Informe os dados principais para contextualizar a predi&ccedil;&atilde;o do estudante.</p>
+            </div>
+
             <div class="form-grid">
-              <div>
+              <div class="field">
                 <label for="Idade">Idade</label>
                 <input id="Idade" name="Idade" type="number" min="14" max="100" value="{{ form_data.Idade }}" required />
               </div>
-              <div>
-                <label for="Curso_Tecnico">Curso técnico</label>
+
+              <div class="field">
+                <label for="Curso_Tecnico">Curso t&eacute;cnico</label>
                 <select id="Curso_Tecnico" name="Curso_Tecnico" required>
                   <option value="Sim" {% if form_data.Curso_Tecnico == 'Sim' %}selected{% endif %}>Sim</option>
-                  <option value="Não" {% if form_data.Curso_Tecnico in ['Nao', 'Não'] %}selected{% endif %}>Não</option>
+                  <option value="N&atilde;o" {% if form_data.Curso_Tecnico != 'Sim' %}selected{% endif %}>N&atilde;o</option>
                 </select>
               </div>
-              <div>
+
+              <div class="field field-wide">
                 <label for="Anos_Para_Formar">Anos para formar</label>
                 <input id="Anos_Para_Formar" name="Anos_Para_Formar" type="number" min="1" max="15" value="{{ form_data.Anos_Para_Formar }}" required />
               </div>
@@ -302,68 +485,129 @@
           </div>
 
           <div class="form-section">
-            <h2>Preferências</h2>
-            {% for field in preference_fields %}
-              <div class="slider-row">
-                <div>
-                  <label for="{{ field.name }}">{{ field.label }}</label>
-                  <input id="{{ field.name }}" name="{{ field.name }}" type="range" min="1" max="5" value="{{ form_data[field.name] }}" oninput="document.getElementById('{{ field.name }}_value').textContent = this.value" />
+            <div class="form-section-head">
+              <h2>Prefer&ecirc;ncias</h2>
+              <p class="muted">Avalie cada afinidade de 1 a 5 para orientar a recomenda&ccedil;&atilde;o do modelo.</p>
+            </div>
+
+            <div class="slider-grid">
+              {% for field in preference_fields %}
+                <div class="slider-row">
+                  <div>
+                    <label for="{{ field.name }}">{{ field.label }}</label>
+                    <input id="{{ field.name }}" name="{{ field.name }}" type="range" min="1" max="5" value="{{ form_data[field.name] }}" oninput="document.getElementById('{{ field.name }}_value').textContent = this.value" />
+                  </div>
+                  <span class="slider-value" id="{{ field.name }}_value">{{ form_data[field.name] }}</span>
                 </div>
-                <span class="slider-value" id="{{ field.name }}_value">{{ form_data[field.name] }}</span>
-              </div>
-            {% endfor %}
+              {% endfor %}
+            </div>
           </div>
 
-          <button type="submit">Gerar predição</button>
+          <div class="form-actions">
+            <button type="submit">Gerar predi&ccedil;&atilde;o</button>
+          </div>
         </form>
       </section>
 
-      <section class="card">
-        <h2>Status da aplicação</h2>
-        <div class="status-grid">
-          <div class="status-item">
-            <strong>Status</strong>
-            <span>{{ health.status }}</span>
+      <aside class="sidebar">
+        <section class="card sidebar-card">
+          <div class="sidebar-head">
+            <h2>Status da aplica&ccedil;&atilde;o</h2>
+            <p class="muted">Vis&atilde;o r&aacute;pida do servi&ccedil;o, do modelo ativo e dos recursos dispon&iacute;veis para consulta.</p>
           </div>
-          <div class="status-item">
-            <strong>Modelo</strong>
-            <span>{{ health.model_name }}</span>
-          </div>
-          <div class="status-item">
-            <strong>Variante</strong>
-            <span>{{ health.model_variant }}</span>
-          </div>
-          <div class="status-item">
-            <strong>Preprocessamento</strong>
-            <span>{% if health.preprocess_loaded %}Carregado{% else %}Indisponível{% endif %}</span>
-          </div>
-        </div>
 
-        <div class="quick-links">
-          <a href="/docs" target="_blank" rel="noreferrer">Swagger</a>
-          <a href="/redoc" target="_blank" rel="noreferrer">ReDoc</a>
-          <a href="/health" target="_blank" rel="noreferrer">Health JSON</a>
-        </div>
+          <div class="status-grid">
+            <div class="status-item">
+              <strong>Status</strong>
+              <span>{{ health.status }}</span>
+            </div>
+            <div class="status-item">
+              <strong>Modelo</strong>
+              <span>{{ health.model_name }}</span>
+            </div>
+            <div class="status-item">
+              <strong>Variante</strong>
+              <span>{{ health.model_variant }}</span>
+            </div>
+            <div class="status-item">
+              <strong>Preprocessamento</strong>
+              <span>{% if health.preprocess_loaded %}Carregado{% else %}Indispon&iacute;vel{% endif %}</span>
+            </div>
+          </div>
+
+          <div class="quick-links">
+            <a href="/docs" target="_blank" rel="noreferrer">Swagger</a>
+            <a href="/redoc" target="_blank" rel="noreferrer">ReDoc</a>
+            <a href="/health" target="_blank" rel="noreferrer">Health JSON</a>
+          </div>
+        </section>
 
         {% if result %}
-          <div class="result-box">
-            <h3>Resultado da predição</h3>
+          <section class="result-box" data-prediction-feedback>
+            <h3>Resultado da predi&ccedil;&atilde;o</h3>
             <div class="result-main">{{ result.prediction }}</div>
             <div class="result-meta">
               <div><strong>Probabilidade:</strong> {{ result.probability }}%</div>
               <div><strong>Modelo usado:</strong> {{ result.model_name }}</div>
             </div>
-          </div>
+          </section>
         {% endif %}
 
         {% if error_message %}
-          <div class="error-box">
-            <h3>Não foi possível gerar a predição</h3>
+          <section class="error-box" data-prediction-feedback>
+            <h3>N&atilde;o foi poss&iacute;vel gerar a predi&ccedil;&atilde;o</h3>
             <p>{{ error_message }}</p>
-          </div>
+          </section>
         {% endif %}
-      </section>
+
+        <section class="card sidebar-card">
+          <div class="sidebar-head">
+            <h2>Relat&oacute;rios do projeto</h2>
+            <p class="muted">Acesse os documentos HTML com as evid&ecirc;ncias das etapas de EDA, preprocessamento e treinamento.</p>
+          </div>
+
+          <div class="reports-list">
+            {% for report in report_links %}
+              <a class="report-card" href="{{ report.href }}" target="_blank" rel="noreferrer">
+                <strong>{{ report.title }}</strong>
+                <span>{{ report.description }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+      </aside>
     </div>
   </main>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      var feedback = document.querySelector("[data-prediction-feedback]");
+      if (!feedback) {
+        return;
+      }
+
+      var prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReducedMotion) {
+        feedback.scrollIntoView({ block: "nearest" });
+        return;
+      }
+
+      feedback.classList.add("feedback-entry");
+
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          feedback.classList.add("is-visible");
+        });
+      });
+
+      window.setTimeout(function () {
+        feedback.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 140);
+
+      document.body.classList.add("page-focus-active");
+      window.setTimeout(function () {
+        document.body.classList.remove("page-focus-active");
+      }, 520);
+    });
+  </script>
 </body>
 </html>
