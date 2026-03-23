@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -151,6 +152,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+app.mount("/reports/figures", StaticFiles(directory=REPORTS_DIR / "figures"), name="report-figures")
 
 
 def get_predictor(request: Request) -> PredictorService:
