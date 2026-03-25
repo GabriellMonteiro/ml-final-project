@@ -11,9 +11,12 @@ from pathlib import Path
 import joblib
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, f1_score, precision_score, recall_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.utils.class_weight import compute_sample_weight
+from xgboost import XGBClassifier
 
 from src.utils.mlflow_utils import log_training_experiment
 from src.utils.report_utils import build_structured_report
@@ -21,6 +24,10 @@ from src.utils.report_utils import build_structured_report
 TARGET_COLUMN = "Graduacao_Indicada"
 DEPLOY_RF_N_ESTIMATORS = 80
 DEPLOY_RF_MAX_DEPTH = 10
+DEPLOY_XGB_N_ESTIMATORS = 100
+DEPLOY_XGB_MAX_DEPTH = 4
+DEPLOY_GB_N_ESTIMATORS = 100
+DEPLOY_GB_MAX_DEPTH = 4
 
 
 def parse_args() -> argparse.Namespace:
@@ -57,29 +64,69 @@ def parse_args() -> argparse.Namespace:
         default="graduacao-indicada-classificacao",
         help="Nome do experimento no MLflow.",
     )
+    # -- Logistic Regression --
     parser.add_argument(
         "--logreg-c",
         type=float,
-        default=1.0,
+        default=0.5,
         help="Valor de regularizacao C da LogisticRegression.",
     )
     parser.add_argument(
         "--logreg-max-iter",
         type=int,
-        default=2000,
+        default=10000,
         help="Numero maximo de iteracoes da LogisticRegression.",
     )
+    # -- Random Forest --
     parser.add_argument(
         "--rf-n-estimators",
         type=int,
-        default=300,
+        default=500,
         help="Quantidade de arvores da RandomForest.",
     )
     parser.add_argument(
         "--rf-max-depth",
         type=int,
-        default=None,
-        help="Profundidade maxima da RandomForest. Omitido usa crescimento livre.",
+        default=20,
+        help="Profundidade maxima da RandomForest.",
+    )
+    # -- XGBoost --
+    parser.add_argument(
+        "--xgb-n-estimators",
+        type=int,
+        default=500,
+        help="Quantidade de arvores do XGBoost.",
+    )
+    parser.add_argument(
+        "--xgb-max-depth",
+        type=int,
+        default=6,
+        help="Profundidade maxima das arvores do XGBoost.",
+    )
+    parser.add_argument(
+        "--xgb-learning-rate",
+        type=float,
+        default=0.1,
+        help="Taxa de aprendizado do XGBoost.",
+    )
+    # -- Gradient Boosting --
+    parser.add_argument(
+        "--gb-n-estimators",
+        type=int,
+        default=300,
+        help="Quantidade de arvores do GradientBoosting.",
+    )
+    parser.add_argument(
+        "--gb-max-depth",
+        type=int,
+        default=5,
+        help="Profundidade maxima das arvores do GradientBoosting.",
+    )
+    parser.add_argument(
+        "--gb-learning-rate",
+        type=float,
+        default=0.05,
+        help="Taxa de aprendizado do GradientBoosting.",
     )
     return parser.parse_args()
 
@@ -123,8 +170,14 @@ def build_models(
     logreg_max_iter: int,
     rf_n_estimators: int,
     rf_max_depth: int | None,
+    xgb_n_estimators: int = 500,
+    xgb_max_depth: int = 6,
+    xgb_learning_rate: float = 0.1,
+    gb_n_estimators: int = 300,
+    gb_max_depth: int = 5,
+    gb_learning_rate: float = 0.05,
 ) -> dict[str, object]:
-    """Monta os modelos exigidos pelo escopo da atividade."""
+    """Monta os modelos de classificacao para comparacao."""
     return {
         "LogisticRegression": LogisticRegression(
             C=logreg_c,
@@ -136,9 +189,35 @@ def build_models(
         "RandomForest": RandomForestClassifier(
             n_estimators=rf_n_estimators,
             max_depth=rf_max_depth,
+            min_samples_split=5,
+            min_samples_leaf=3,
+            max_features="log2",
+            class_weight="balanced_subsample",
+            criterion="entropy",
             random_state=random_state,
-            class_weight="balanced",
             n_jobs=-1,
+        ),
+        "XGBoost": XGBClassifier(
+            n_estimators=xgb_n_estimators,
+            max_depth=xgb_max_depth,
+            learning_rate=xgb_learning_rate,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_weight=3,
+            objective="multi:softprob",
+            eval_metric="mlogloss",
+            random_state=random_state,
+            n_jobs=-1,
+        ),
+        "GradientBoosting": GradientBoostingClassifier(
+            n_estimators=gb_n_estimators,
+            max_depth=gb_max_depth,
+            learning_rate=gb_learning_rate,
+            subsample=0.8,
+            min_samples_split=10,
+            min_samples_leaf=5,
+            max_features="sqrt",
+            random_state=random_state,
         ),
     }
 
@@ -237,8 +316,8 @@ def build_report(
                         },
                         {
                             "label": "Modelos avaliados",
-                            "value": "LogisticRegression e RandomForest",
-                            "description": "Comparacao entre baseline linear e modelo nao linear.",
+                            "value": "LogisticRegression, RandomForest, XGBoost e GradientBoosting",
+                            "description": "Comparacao entre baseline linear, bagging e dois modelos de boosting.",
                         },
                         {
                             "label": "Config atual",
@@ -246,7 +325,13 @@ def build_report(
                                 f"logreg_c={model_config['logreg_c']}, "
                                 f"logreg_max_iter={model_config['logreg_max_iter']}, "
                                 f"rf_n_estimators={model_config['rf_n_estimators']}, "
-                                f"rf_max_depth={model_config['rf_max_depth']}"
+                                f"rf_max_depth={model_config['rf_max_depth']}, "
+                                f"xgb_n_estimators={model_config['xgb_n_estimators']}, "
+                                f"xgb_max_depth={model_config['xgb_max_depth']}, "
+                                f"xgb_learning_rate={model_config['xgb_learning_rate']}, "
+                                f"gb_n_estimators={model_config['gb_n_estimators']}, "
+                                f"gb_max_depth={model_config['gb_max_depth']}, "
+                                f"gb_learning_rate={model_config['gb_learning_rate']}"
                             ),
                             "description": "Hiperparametros usados neste run para facilitar a comparacao.",
                         },
@@ -353,8 +438,8 @@ def build_deploy_models(random_state: int) -> dict[str, object]:
     """Monta variantes leves do modelo para deploy no Render."""
     return {
         "deploy_logreg.joblib": LogisticRegression(
-            C=1.0,
-            max_iter=2000,
+            C=0.5,
+            max_iter=10000,
             solver="lbfgs",
             class_weight="balanced",
             random_state=random_state,
@@ -362,11 +447,46 @@ def build_deploy_models(random_state: int) -> dict[str, object]:
         "deploy_rf_compacto.joblib": RandomForestClassifier(
             n_estimators=DEPLOY_RF_N_ESTIMATORS,
             max_depth=DEPLOY_RF_MAX_DEPTH,
+            min_samples_split=5,
+            min_samples_leaf=3,
+            max_features="log2",
+            class_weight="balanced_subsample",
+            criterion="entropy",
             random_state=random_state,
-            class_weight="balanced",
             n_jobs=-1,
         ),
+        "deploy_xgb_compacto.joblib": XGBClassifier(
+            n_estimators=DEPLOY_XGB_N_ESTIMATORS,
+            max_depth=DEPLOY_XGB_MAX_DEPTH,
+            learning_rate=0.1,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_weight=3,
+            objective="multi:softprob",
+            eval_metric="mlogloss",
+            random_state=random_state,
+            n_jobs=-1,
+        ),
+        "deploy_gb_compacto.joblib": GradientBoostingClassifier(
+            n_estimators=DEPLOY_GB_N_ESTIMATORS,
+            max_depth=DEPLOY_GB_MAX_DEPTH,
+            learning_rate=0.05,
+            subsample=0.8,
+            min_samples_split=10,
+            min_samples_leaf=5,
+            max_features="sqrt",
+            random_state=random_state,
+        ),
     }
+
+
+DEPLOY_FILENAME_TO_MODEL_NAME = {
+    "deploy_logreg.joblib": "LogisticRegression",
+    "deploy_rf_compacto.joblib": "RandomForestCompacto",
+    "deploy_xgb_compacto.joblib": "XGBoostCompacto",
+    "deploy_gb_compacto.joblib": "GradientBoostingCompacto",
+}
+DEPLOY_MODELS_NEEDING_SAMPLE_WEIGHT = {"deploy_xgb_compacto.joblib", "deploy_gb_compacto.joblib"}
 
 
 def save_deploy_artifacts(
@@ -378,17 +498,43 @@ def save_deploy_artifacts(
     """Treina e salva artefatos menores dedicados ao deploy."""
     deploy_paths: dict[str, Path] = {}
     deploy_models = build_deploy_models(random_state=random_state)
+    sample_weights = compute_sample_weight("balanced", y_train)
+
+    # LabelEncoder para XGBoost deploy
+    label_encoder = LabelEncoder()
+    y_train_encoded = label_encoder.fit_transform(y_train)
 
     for filename, model in deploy_models.items():
-        model.fit(X_train, y_train)
-        model_name = "LogisticRegression" if "logreg" in filename else "RandomForestCompacto"
-        deploy_paths[filename] = save_model_artifact(
-            model_name=model_name,
-            model=model,
-            feature_columns=X_train.columns.tolist(),
-            artifacts_dir=artifacts_dir,
-            filename=filename,
-        )
+        if "xgb" in filename:
+            model.fit(X_train, y_train_encoded, sample_weight=sample_weights)
+            # Salva o label_encoder junto com o modelo XGBoost
+            model_name = DEPLOY_FILENAME_TO_MODEL_NAME.get(filename, "Desconhecido")
+            ensure_dir(artifacts_dir)
+            model_path = artifacts_dir / filename
+            joblib.dump(
+                {
+                    "model_name": model_name,
+                    "model": model,
+                    "feature_columns": X_train.columns.tolist(),
+                    "target_column": TARGET_COLUMN,
+                    "label_encoder": label_encoder,
+                },
+                model_path,
+            )
+            deploy_paths[filename] = model_path
+        else:
+            if filename in DEPLOY_MODELS_NEEDING_SAMPLE_WEIGHT:
+                model.fit(X_train, y_train, sample_weight=sample_weights)
+            else:
+                model.fit(X_train, y_train)
+            model_name = DEPLOY_FILENAME_TO_MODEL_NAME.get(filename, "Desconhecido")
+            deploy_paths[filename] = save_model_artifact(
+                model_name=model_name,
+                model=model,
+                feature_columns=X_train.columns.tolist(),
+                artifacts_dir=artifacts_dir,
+                filename=filename,
+            )
 
     return deploy_paths
 
@@ -408,10 +554,16 @@ def run_training(
     random_state: int,
     tracking_dir: Path,
     experiment_name: str,
-    logreg_c: float = 1.0,
-    logreg_max_iter: int = 2000,
-    rf_n_estimators: int = 300,
-    rf_max_depth: int | None = None,
+    logreg_c: float = 0.5,
+    logreg_max_iter: int = 10000,
+    rf_n_estimators: int = 500,
+    rf_max_depth: int | None = 20,
+    xgb_n_estimators: int = 500,
+    xgb_max_depth: int = 6,
+    xgb_learning_rate: float = 0.1,
+    gb_n_estimators: int = 300,
+    gb_max_depth: int = 5,
+    gb_learning_rate: float = 0.05,
 ) -> tuple[Path, Path, str, dict[str, dict[str, object]], Path]:
     """Executa o fluxo completo de treino, avaliacao, persistencia e tracking."""
     train_df, test_df = load_splits(data_dir)
@@ -423,21 +575,59 @@ def run_training(
         "logreg_max_iter": logreg_max_iter,
         "rf_n_estimators": rf_n_estimators,
         "rf_max_depth": rf_max_depth,
+        "xgb_n_estimators": xgb_n_estimators,
+        "xgb_max_depth": xgb_max_depth,
+        "xgb_learning_rate": xgb_learning_rate,
+        "gb_n_estimators": gb_n_estimators,
+        "gb_max_depth": gb_max_depth,
+        "gb_learning_rate": gb_learning_rate,
     }
+
     models = build_models(
         random_state=random_state,
         logreg_c=logreg_c,
         logreg_max_iter=logreg_max_iter,
         rf_n_estimators=rf_n_estimators,
         rf_max_depth=rf_max_depth,
+        xgb_n_estimators=xgb_n_estimators,
+        xgb_max_depth=xgb_max_depth,
+        xgb_learning_rate=xgb_learning_rate,
+        gb_n_estimators=gb_n_estimators,
+        gb_max_depth=gb_max_depth,
+        gb_learning_rate=gb_learning_rate,
     )
     results: dict[str, dict[str, object]] = {}
     fitted_models: dict[str, object] = {}
 
+    # LabelEncoder para XGBoost (requer labels numericos)
+    label_encoder = LabelEncoder()
+    y_train_encoded = label_encoder.fit_transform(y_train)
+    y_test_encoded = label_encoder.transform(y_test)
+
+    # sample_weight balanceado para modelos que nao suportam class_weight
+    sample_weights = compute_sample_weight("balanced", y_train)
+    models_needing_sample_weight = {"XGBoost", "GradientBoosting"}
+
     for model_name, model in models.items():
-        model.fit(X_train, y_train)
+        if model_name == "XGBoost":
+            model.fit(X_train, y_train_encoded, sample_weight=sample_weights)
+            # XGBoost prediz indices numericos; decodificamos para labels originais
+            xgb_preds_encoded = model.predict(X_test)
+            xgb_preds = label_encoder.inverse_transform(xgb_preds_encoded)
+            results[model_name] = {
+                "accuracy": accuracy_score(y_test, xgb_preds),
+                "precision_macro": precision_score(y_test, xgb_preds, average="macro", zero_division=0),
+                "recall_macro": recall_score(y_test, xgb_preds, average="macro", zero_division=0),
+                "f1_macro": f1_score(y_test, xgb_preds, average="macro", zero_division=0),
+                "classification_report": classification_report(y_test, xgb_preds, zero_division=0),
+            }
+        else:
+            if model_name in models_needing_sample_weight:
+                model.fit(X_train, y_train, sample_weight=sample_weights)
+            else:
+                model.fit(X_train, y_train)
+            results[model_name] = evaluate_model(model, X_test, y_test)
         fitted_models[model_name] = model
-        results[model_name] = evaluate_model(model, X_test, y_test)
 
     best_model_name = choose_best_model(results)
     best_model = fitted_models[best_model_name]
@@ -502,6 +692,12 @@ def main() -> None:
         logreg_max_iter=args.logreg_max_iter,
         rf_n_estimators=args.rf_n_estimators,
         rf_max_depth=args.rf_max_depth,
+        xgb_n_estimators=args.xgb_n_estimators,
+        xgb_max_depth=args.xgb_max_depth,
+        xgb_learning_rate=args.xgb_learning_rate,
+        gb_n_estimators=args.gb_n_estimators,
+        gb_max_depth=args.gb_max_depth,
+        gb_learning_rate=args.gb_learning_rate,
     )
 
     print(f"Melhor modelo: {best_model_name}")
