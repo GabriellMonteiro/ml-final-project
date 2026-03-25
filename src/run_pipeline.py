@@ -54,29 +54,69 @@ def parse_args() -> argparse.Namespace:
         default="graduacao-indicada-classificacao",
         help="Nome do experimento no MLflow.",
     )
+    # -- Logistic Regression --
     parser.add_argument(
         "--logreg-c",
         type=float,
-        default=1.0,
+        default=0.5,
         help="Valor de regularizacao C da LogisticRegression.",
     )
     parser.add_argument(
         "--logreg-max-iter",
         type=int,
-        default=2000,
+        default=10000,
         help="Numero maximo de iteracoes da LogisticRegression.",
     )
+    # -- Random Forest --
     parser.add_argument(
         "--rf-n-estimators",
         type=int,
-        default=300,
+        default=500,
         help="Quantidade de arvores da RandomForest.",
     )
     parser.add_argument(
         "--rf-max-depth",
         type=int,
-        default=None,
-        help="Profundidade maxima da RandomForest. Omitido usa crescimento livre.",
+        default=20,
+        help="Profundidade maxima da RandomForest.",
+    )
+    # -- XGBoost --
+    parser.add_argument(
+        "--xgb-n-estimators",
+        type=int,
+        default=500,
+        help="Quantidade de arvores do XGBoost.",
+    )
+    parser.add_argument(
+        "--xgb-max-depth",
+        type=int,
+        default=6,
+        help="Profundidade maxima das arvores do XGBoost.",
+    )
+    parser.add_argument(
+        "--xgb-learning-rate",
+        type=float,
+        default=0.1,
+        help="Taxa de aprendizado do XGBoost.",
+    )
+    # -- Gradient Boosting --
+    parser.add_argument(
+        "--gb-n-estimators",
+        type=int,
+        default=300,
+        help="Quantidade de arvores do GradientBoosting.",
+    )
+    parser.add_argument(
+        "--gb-max-depth",
+        type=int,
+        default=5,
+        help="Profundidade maxima das arvores do GradientBoosting.",
+    )
+    parser.add_argument(
+        "--gb-learning-rate",
+        type=float,
+        default=0.05,
+        help="Taxa de aprendizado do GradientBoosting.",
     )
     return parser.parse_args()
 
@@ -122,6 +162,12 @@ def main() -> None:
         logreg_max_iter=args.logreg_max_iter,
         rf_n_estimators=args.rf_n_estimators,
         rf_max_depth=args.rf_max_depth,
+        xgb_n_estimators=args.xgb_n_estimators,
+        xgb_max_depth=args.xgb_max_depth,
+        xgb_learning_rate=args.xgb_learning_rate,
+        gb_n_estimators=args.gb_n_estimators,
+        gb_max_depth=args.gb_max_depth,
+        gb_learning_rate=args.gb_learning_rate,
     )
 
     print("Pipeline concluído com sucesso.")

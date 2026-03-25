@@ -13,6 +13,8 @@ DEFAULT_MODEL_VARIANT = "logreg"
 DEPLOY_MODEL_PATHS = {
     "logreg": Path("artifacts/deploy_logreg.joblib"),
     "rf_compacto": Path("artifacts/deploy_rf_compacto.joblib"),
+    "xgb_compacto": Path("artifacts/deploy_xgb_compacto.joblib"),
+    "gb_compacto": Path("artifacts/deploy_gb_compacto.joblib"),
 }
 COURSE_TECHNICAL_NORMALIZATION = {
     "sim": "Sim",
@@ -126,8 +128,15 @@ class PredictorService:
         transformed_array = self.preprocess_pipeline.transform(dataframe)
         transformed = pd.DataFrame(transformed_array, columns=feature_columns)
 
-        prediction = str(model.predict(transformed)[0])
-        probability = self._prediction_probability(model=model, transformed=transformed, prediction=prediction)
+        raw_prediction = model.predict(transformed)[0]
+        label_encoder = self.model_bundle.get("label_encoder")
+        if label_encoder is not None:
+            prediction = str(label_encoder.inverse_transform([raw_prediction])[0])
+        else:
+            prediction = str(raw_prediction)
+        probability = self._prediction_probability(
+            model=model, transformed=transformed, prediction=raw_prediction if label_encoder else prediction,
+        )
         return PredictionResult(
             prediction=prediction,
             probability=probability,
