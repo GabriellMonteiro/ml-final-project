@@ -1,53 +1,70 @@
-# Projeto Final de ML com Pipeline, API e Deploy
+# Projeto Final de ML para Recomendação de Graduação
 
-Projeto da atividade final de Aprendizado de Máquina com foco em um fluxo simples de ponta a ponta: EDA, preprocessamento, treinamento, avaliação, persistência do modelo, API com FastAPI e deploy no Render.
+Este projeto implementa um pipeline completo de Machine Learning para recomendar uma graduação com base no perfil e nas preferências de um estudante.
 
-O dataset usado está em `data/dataset_graduacao_indicada.csv` e o alvo previsto é `Graduacao_Indicada`.
+O fluxo cobre:
 
-## Objetivo do projeto
+- análise exploratória dos dados
+- preprocessamento
+- treinamento e comparação de modelos
+- avaliação de métricas
+- persistência de artefatos
+- disponibilização do modelo via API FastAPI
+- deploy simples no Render
 
-Entregar um pipeline de Machine Learning funcional e reproduzível para recomendação de graduação, seguindo um escopo MLOps simples:
+O dataset principal está em `data/dataset_graduacao_indicada.csv` e a variável alvo prevista é `Graduacao_Indicada`.
 
-- carregar dados
-- fazer EDA
-- limpar e transformar os dados
-- testar `LogisticRegression` e `RandomForest`
-- comparar métricas
-- salvar artefatos
-- disponibilizar predição via API
-- publicar no Render
+## Visão geral
 
-## Estrutura do repositório
+O projeto recebe dados brutos sobre idade, tempo estimado de formação, curso técnico e preferências por áreas de interesse. A partir disso, o pipeline transforma os dados, treina modelos de classificação e expõe a inferência por API e interface web.
 
-```text
-.
-|-- app/
-|   |-- main.py
-|   |-- predictor.py
-|   `-- templates/
-|-- artifacts/
-|   |-- preprocess_pipeline.joblib
-|   |-- model.joblib
-|   |-- deploy_logreg.joblib
-|   `-- deploy_rf_compacto.joblib
-|-- data/
-|   |-- dataset_graduacao_indicada.csv
-|   `-- processed/
-|-- reports/
-|   |-- eda.html
-|   |-- preprocess.html
-|   |-- model_report.html
-|   `-- figures/
-|-- src/
-|   |-- eda.py
-|   |-- preprocess.py
-|   |-- train.py
-|   `-- run_pipeline.py
-|-- requirements.txt
-`-- render.yaml
-```
+Hoje o treinamento compara estes modelos:
 
-## Quick Start
+- `LogisticRegression`
+- `RandomForest`
+- `XGBoost`
+- `GradientBoosting`
+
+O melhor modelo é escolhido priorizando `f1_macro` e, em caso de empate, `accuracy`.
+
+## Como o projeto funciona
+
+O fluxo principal do projeto é este:
+
+1. Ler o CSV bruto.
+2. Gerar EDA com gráficos e insights simples.
+3. Aplicar preprocessamento com separação entre variáveis numéricas e categóricas.
+4. Salvar datasets processados de treino e teste.
+5. Treinar e comparar os modelos.
+6. Salvar o melhor modelo e os artefatos de deploy.
+7. Expor a predição pela API.
+
+### Pré-processamento
+
+O pipeline de preparação inclui:
+
+- imputação simples
+- `StandardScaler` para colunas numéricas
+- `OneHotEncoder` para variáveis categóricas
+- split treino/teste com estratificação e `random_state=42`
+
+### Saídas geradas
+
+Após rodar o pipeline completo, os principais artefatos são:
+
+- `artifacts/preprocess_pipeline.joblib`
+- `artifacts/model.joblib`
+- `artifacts/deploy_logreg.joblib`
+- `artifacts/deploy_rf_compacto.joblib`
+- `artifacts/deploy_xgb_compacto.joblib`
+- `artifacts/deploy_gb_compacto.joblib`
+- `reports/eda.html`
+- `reports/preprocess.html`
+- `reports/model_report.html`
+- `data/processed/train.parquet`
+- `data/processed/test.parquet`
+
+## Como rodar localmente
 
 ### 1. Instalar dependências
 
@@ -55,119 +72,33 @@ Entregar um pipeline de Machine Learning funcional e reproduzível para recomend
 pip install -r requirements.txt
 ```
 
-### 2. Rodar o pipeline completo
+### 2. Executar o pipeline completo
 
 ```bash
 python -B -m src.run_pipeline
 ```
 
-Esse comando executa, na ordem:
+Esse comando executa EDA, preprocessamento, treinamento, geração de relatórios e tracking local no MLflow.
 
-1. EDA
-2. preprocessamento
-3. treinamento e comparação de modelos
-4. geração de artefatos e relatórios
-5. registro local no MLflow
-
-### 3. Subir a API localmente
+### 3. Subir a API
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Abrir no navegador:
+URLs úteis após subir a aplicação:
 
 - Interface web: `http://127.0.0.1:8000/`
 - Swagger: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
 - Health check: `http://127.0.0.1:8000/health`
+- Relatório EDA: `http://127.0.0.1:8000/reports/eda`
+- Relatório de preprocessamento: `http://127.0.0.1:8000/reports/preprocess`
+- Relatório de treinamento: `http://127.0.0.1:8000/reports/model`
 
-## Esteira CI/CD
+## Como usar o modelo
 
-O projeto agora segue uma esteira MLOps simples, pensada para validação rápida e deploy funcional.
-
-### O que a CI valida
-
-- instalação das dependências do projeto
-- sintaxe e importação dos módulos em `app/` e `src/`
-- entrypoints principais com `--help`
-- presença dos artefatos e arquivos obrigatórios versionados
-- smoke tests da API com `GET /health`, `POST /predict`, `POST /web/predict` e cenário degradado com `MODEL_VARIANT` inválida
-
-### Quando a CI roda
-
-- em `pull_request` para `main`
-- em `push` para `main`
-
-### Como o deploy acontece
-
-- a validação automática roda no GitHub Actions pelo workflow `ci`
-- o deploy continua simples e fica a cargo do Render
-- após merge na `main`, o Render pode publicar automaticamente usando o `render.yaml`
-
-### Observação importante
-
-- a esteira inicial não executa `python -m src.run_pipeline`
-- o treino completo fica fora da CI para evitar regravação de artefatos, aumento de tempo e inconsistência em um fluxo que precisa ser simples
-
-### Roadmap conceitual
-
-Como evolução futura, a esteira pode incorporar:
-
-- validação formal de dados
-- treino automatizado controlado
-- model registry
-- staging antes de produção
-- monitoramento de drift e performance
-- rollback e retraining
-
-## Evidências geradas pelo projeto
-
-Após a execução do pipeline completo, o projeto produz:
-
-- `reports/eda.html`: relatório da análise exploratória
-- `reports/preprocess.html`: relatório da etapa de tratamento e transformação
-- `reports/model_report.html`: comparação entre `LogisticRegression` e `RandomForest`
-- `reports/figures/`: gráficos da EDA, do split e da comparação de métricas
-- `data/processed/train.parquet` e `data/processed/test.parquet`
-- `artifacts/preprocess_pipeline.joblib`
-- `artifacts/model.joblib`: melhor modelo do fluxo local
-- `artifacts/deploy_logreg.joblib` e `artifacts/deploy_rf_compacto.joblib`: variantes leves para publicação
-- `mlruns/`: histórico local de experimentos no MLflow
-
-## O que foi implementado no pipeline
-
-### EDA
-
-- verificação de tipos de dados
-- verificação de valores nulos
-- análise da distribuição da variável alvo
-- correlação entre features
-- gráficos e insights finais em HTML
-
-### Preprocessamento
-
-- separação entre `X` e `y`
-- identificação de colunas numéricas e categóricas
-- imputação simples
-- `StandardScaler` para colunas numéricas
-- `OneHotEncoder` para variáveis categóricas
-- split treino/teste com estratificação e `random_state=42`
-
-### Modelagem
-
-- treinamento de `LogisticRegression`
-- treinamento de `RandomForest`
-- avaliação com:
-  - `accuracy`
-  - `precision_macro`
-  - `recall_macro`
-  - `f1_macro`
-- escolha do melhor modelo priorizando `f1_macro` e, em empate, `accuracy`
-
-## API de predição
-
-A API foi implementada com FastAPI e serve tanto JSON quanto interface web.
+O jeito principal de usar o modelo neste projeto é pela API FastAPI.
 
 ### Endpoints principais
 
@@ -176,16 +107,34 @@ A API foi implementada com FastAPI e serve tanto JSON quanto interface web.
 - `POST /predict`
 - `POST /web/predict`
 
-### Contrato de entrada
+Os endpoints `/reports/eda`, `/reports/preprocess` e `/reports/model` também servem os relatórios HTML já gerados pelo pipeline.
 
-O payload da API valida os dados antes da inferência:
+### Entrada esperada
 
-- `Idade`: entre 14 e 100
-- `Anos_Para_Formar`: entre 1 e 15
+O endpoint `POST /predict` recebe um JSON com estes campos:
+
+- `Idade`
+- `Curso_Tecnico`
+- `Anos_Para_Formar`
+- `Gosta_Matematica`
+- `Gosta_Programacao`
+- `Gosta_Biologia`
+- `Gosta_Fisica`
+- `Gosta_Quimica`
+- `Gosta_Arte_Design`
+- `Gosta_Comunicacao`
+- `Gosta_Negocios`
+- `Gosta_Historia`
+- `Gosta_Geografia`
+
+Regras de validação principais:
+
+- `Idade`: de 14 a 100
+- `Anos_Para_Formar`: de 1 a 15
 - preferências: de 1 a 5
-- `Curso_Tecnico`: aceita `Sim`, `Nao` e `Não`, com normalização interna
+- `Curso_Tecnico`: aceita `Sim`, `Nao` e `Não`
 
-### Exemplo de payload
+### Exemplo de requisição
 
 ```json
 {
@@ -213,130 +162,134 @@ curl -X POST "http://127.0.0.1:8000/predict" \
   -d "{\"Idade\":45,\"Curso_Tecnico\":\"Não\",\"Anos_Para_Formar\":7,\"Gosta_Matematica\":1,\"Gosta_Programacao\":4,\"Gosta_Biologia\":2,\"Gosta_Fisica\":3,\"Gosta_Quimica\":5,\"Gosta_Arte_Design\":3,\"Gosta_Comunicacao\":1,\"Gosta_Negocios\":1,\"Gosta_Historia\":5,\"Gosta_Geografia\":1}"
 ```
 
-### Teste manual recomendado
+### Resposta esperada
 
-1. Abrir `http://127.0.0.1:8000/`
-2. Preencher o formulário
-3. Enviar a predição
-4. Conferir curso previsto, probabilidade e modelo ativo
-5. Validar `GET /health` para confirmar carga dos artefatos
+O retorno do `POST /predict` segue este formato:
 
-## MLflow
-
-Depois do treinamento, os experimentos podem ser visualizados localmente com:
-
-```bash
-mlflow ui --backend-store-uri mlruns
+```json
+{
+  "prediction": "Ciência da Computação",
+  "probability": 94.21,
+  "model_name": "XGBoostCompacto"
+}
 ```
 
-Interface local:
+Campos da resposta:
 
-```text
-http://127.0.0.1:5000
-```
+- `prediction`: graduação indicada pelo modelo
+- `probability`: confiança da classe prevista, em percentual
+- `model_name`: nome do modelo carregado na API
 
-No MLflow ficam registrados:
+### Uso pela interface web
 
-- parâmetros dos modelos
-- métricas de teste
-- artefatos do melhor modelo
-- relatório HTML de treinamento
+Se preferir, basta abrir `http://127.0.0.1:8000/`, preencher o formulário e enviar a predição pelo navegador.
 
-## Deploy no Render
+## Variantes do modelo na API
 
-O projeto está preparado para deploy sem Docker usando `render.yaml`.
+A API carrega duas coisas na inicialização:
 
-Configuração atual:
+- o pipeline de preprocessamento em `artifacts/preprocess_pipeline.joblib`
+- um artefato de modelo selecionado pela variável de ambiente `MODEL_VARIANT`
 
-- runtime Python
-- instalação com `pip install -r requirements.txt`
-- start com `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- health check em `/health`
-
-### Variável de ambiente
-
-- `MODEL_VARIANT`
-
-Valores suportados:
+Valores suportados por `MODEL_VARIANT`:
 
 - `logreg`
 - `rf_compacto`
+- `xgb_compacto`
+- `gb_compacto`
 
-Valor padrão no deploy atual:
+Exemplo em PowerShell:
 
-```text
-MODEL_VARIANT=logreg
+```powershell
+$env:MODEL_VARIANT="xgb_compacto"
+uvicorn app.main:app --reload
 ```
 
-### Passos de publicação
+Se a variante for inválida ou se os artefatos não existirem, o endpoint `GET /health` responde com status degradado.
 
-1. Subir o repositório para o GitHub com os artefatos de deploy versionados.
-2. Criar um novo serviço no Render usando o repositório.
-3. Confirmar o uso do arquivo `render.yaml`.
-4. Validar a env var `MODEL_VARIANT`.
-5. Ativar auto-deploy da branch `main` no serviço do Render.
-6. Aguardar o build e testar a aplicação publicada.
+## Estrutura do repositório
 
-### Validações após deploy
+```text
+.
+|-- app/
+|   |-- main.py
+|   |-- predictor.py
+|   `-- templates/
+|-- artifacts/
+|-- data/
+|   |-- dataset_graduacao_indicada.csv
+|   `-- processed/
+|-- reports/
+|   `-- figures/
+|-- src/
+|   |-- eda.py
+|   |-- preprocess.py
+|   |-- train.py
+|   `-- run_pipeline.py
+|-- requirements.txt
+`-- render.yaml
+```
 
-- `GET /health`
-- `GET /docs`
-- `POST /predict`
-- confirmação de que a publicação ocorreu após merge na `main`
+## Comandos úteis
 
-## Comandos por etapa
-
-### EDA
+### Rodar apenas a EDA
 
 ```bash
 python -B -m src.eda
 ```
 
-Com parâmetros:
-
-```bash
-python -B -m src.eda --input data/dataset_graduacao_indicada.csv --out reports
-```
-
-### Preprocessamento
+### Rodar apenas o preprocessamento
 
 ```bash
 python -B -m src.preprocess --input data/dataset_graduacao_indicada.csv --outdir data/processed --artifacts artifacts --reports reports
 ```
 
-### Treinamento
+### Rodar apenas o treinamento
 
 ```bash
 python -B -m src.train --data_dir data/processed --artifacts artifacts --reports reports
 ```
 
-Exemplo de experimento alternativo:
+### Ver experimentos no MLflow
 
 ```bash
-python -B -m src.train --logreg-c 0.5 --logreg-max-iter 3000 --rf-n-estimators 500 --rf-max-depth 18
+mlflow ui --backend-store-uri mlruns
 ```
 
-### Pipeline completo
+Interface local do MLflow:
 
-```bash
-python -B -m src.run_pipeline
+```text
+http://127.0.0.1:5000
 ```
 
-### API local com seleção de variante
+## Deploy no Render
 
-PowerShell:
+O projeto está configurado para deploy simples sem Docker usando `render.yaml`.
 
-```powershell
-$env:MODEL_VARIANT="logreg"
-uvicorn app.main:app --reload
+Configuração atual:
+
+- runtime Python
+- build com `pip install -r requirements.txt`
+- start com `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- health check em `/health`
+
+Valor padrão configurado hoje:
+
+```text
+MODEL_VARIANT=xgb_compacto
 ```
 
-ou
+## CI/CD
 
-```powershell
-$env:MODEL_VARIANT="rf_compacto"
-uvicorn app.main:app --reload
-```
+O workflow de CI valida:
+
+- instalação de dependências
+- compilação/importação dos módulos
+- entrypoints principais com `--help`
+- presença de arquivos obrigatórios versionados
+- smoke tests da API
+
+O treino completo não roda na CI para manter a esteira simples e evitar regravação de artefatos.
 
 ## Dependências principais
 
@@ -345,15 +298,13 @@ uvicorn app.main:app --reload
 - `matplotlib`
 - `seaborn`
 - `scikit-learn`
+- `xgboost`
 - `joblib`
 - `mlflow`
 - `pyarrow`
 - `fastapi`
+- `httpx`
 - `uvicorn`
 - `pydantic`
 - `jinja2`
 - `python-multipart`
-
-## Observação final
-
-O projeto foi mantido propositalmente simples, com scripts diretos e foco em funcionalidade local, para atender ao escopo de um MLOps enxuto e pronto para demonstração.
